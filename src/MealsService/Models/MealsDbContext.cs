@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace MealsService.Models
 {
@@ -14,10 +10,13 @@ namespace MealsService.Models
 
         public DbSet<DietType> DietTypes { get; set; }
         public DbSet<Ingredient> Ingredients { get; set; }
+        public DbSet<IngredientCategory> IngredientCategories { get; set; }
 
 
+        public DbSet<MealDietType> MealDietTypes { get; set; } 
         public DbSet<MealIngredient> MealIngredients { get; set; }
         public DbSet<Meal> Meals { get; set; }
+        public DbSet<RecipeStep> RecipeSteps { get; set; }
 
 
         #region User-Specific

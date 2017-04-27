@@ -18,7 +18,7 @@ namespace MealsService.Migrations
                 table: "DietGoals",
                 nullable: false,
                 defaultValue: 0)
-                .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                        .Annotation("MySql:ValueGeneratedOnAdd", true);
 
             migrationBuilder.AddPrimaryKey(
                 name: "PK_DietGoals",

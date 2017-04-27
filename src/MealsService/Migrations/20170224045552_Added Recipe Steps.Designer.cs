@@ -8,9 +8,10 @@ using MealsService.Models;
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170224045552_Added Recipe Steps")]
+    partial class AddedRecipeSteps
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.0-rtm-22752");
@@ -110,24 +111,6 @@ namespace MealsService.Migrations
                     b.ToTable("Meals");
                 });
 
-            modelBuilder.Entity("MealsService.Models.MealDietType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("DietTypeId");
-
-                    b.Property<int>("MealId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DietTypeId");
-
-                    b.HasIndex("MealId");
-
-                    b.ToTable("MealDietTypes");
-                });
-
             modelBuilder.Entity("MealsService.Models.MealIngredient", b =>
                 {
                     b.Property<int>("Id")
@@ -155,8 +138,6 @@ namespace MealsService.Migrations
                     b.Property<int>("UserId");
 
                     b.Property<int>("MealStyle");
-
-                    b.Property<string>("MealTypesList");
 
                     b.Property<int>("ShoppingFreq");
 
@@ -238,19 +219,6 @@ namespace MealsService.Migrations
                     b.HasOne("MealsService.Models.IngredientCategory", "Category")
                         .WithMany()
                         .HasForeignKey("CategoryId");
-                });
-
-            modelBuilder.Entity("MealsService.Models.MealDietType", b =>
-                {
-                    b.HasOne("MealsService.Models.DietType", "DietType")
-                        .WithMany()
-                        .HasForeignKey("DietTypeId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("MealsService.Models.Meal", "Meal")
-                        .WithMany("MealDietTypes")
-                        .HasForeignKey("MealId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("MealsService.Models.MealIngredient", b =>

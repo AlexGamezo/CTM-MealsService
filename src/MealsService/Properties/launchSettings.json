@@ -3,7 +3,7 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://meals.cutthemeat.com:54323/",
+      "applicationUrl": "http://localhost:54323/",
       "sslPort": 0
     }
   },
@@ -11,7 +11,7 @@
     "IIS Express": {
       "commandName": "IISExpress",
       "launchBrowser": true,
-      "launchUrl": "api/meals/search",
+      "launchUrl": "meals/search",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

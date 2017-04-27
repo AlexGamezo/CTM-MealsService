@@ -8,9 +8,10 @@ using MealsService.Models;
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170401235016_meal diet types added")]
+    partial class mealdiettypesadded
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.0-rtm-22752");

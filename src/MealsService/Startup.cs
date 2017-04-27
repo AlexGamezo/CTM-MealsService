@@ -34,15 +34,17 @@ namespace MealsService
         {
 
             var connection = Configuration.GetConnectionString("DefaultConnection");
-            services.AddDbContext<MealsDbContext>(options => options.UseSqlServer(connection));
+            services.AddDbContext<MealsDbContext>(options => options.UseMySql(connection));
 
             services.AddCors();
 
             // Add framework services.
             services.AddMvc();
-            services.AddScoped<Services.MealsService>();
+            services.AddScoped<Services.RecipesService>();
             services.AddScoped<Services.ScheduleService>();
             services.AddScoped<Services.DietService>();
+            services.AddScoped<Services.IngredientsService>();
+            services.AddScoped<Services.DietTypeService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

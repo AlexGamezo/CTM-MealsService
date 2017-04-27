@@ -14,7 +14,7 @@ namespace MealsService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySql:ValueGeneratedOnAdd", true),
                     Description = table.Column<string>(nullable: true),
                     Name = table.Column<string>(nullable: true),
                     ShortDescription = table.Column<string>(nullable: true)
@@ -29,7 +29,7 @@ namespace MealsService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySql:ValueGeneratedOnAdd", true),
                     Brief = table.Column<string>(nullable: true),
                     Description = table.Column<string>(nullable: true),
                     Name = table.Column<string>(nullable: true)
@@ -44,7 +44,7 @@ namespace MealsService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySql:ValueGeneratedOnAdd", true),
                     Brief = table.Column<string>(nullable: true),
                     CookTime = table.Column<int>(nullable: false),
                     Description = table.Column<string>(nullable: true),
@@ -63,7 +63,7 @@ namespace MealsService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySql:ValueGeneratedOnAdd", true),
                     Created = table.Column<DateTime>(nullable: false),
                     Date = table.Column<DateTime>(nullable: false),
                     DietTypeId1 = table.Column<int>(nullable: true),
@@ -93,7 +93,7 @@ namespace MealsService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySql:ValueGeneratedOnAdd", true),
                     Amount = table.Column<float>(nullable: false),
                     AmountType = table.Column<string>(nullable: true),
                     IngredientId = table.Column<int>(nullable: false),
@@ -121,7 +121,7 @@ namespace MealsService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySql:ValueGeneratedOnAdd", true),
                     MealId = table.Column<int>(nullable: false),
                     ScheduleDayId = table.Column<int>(nullable: false),
                     Type = table.Column<int>(nullable: false)

@@ -8,9 +8,10 @@ using MealsService.Models;
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170215063518_Add category for ingredients")]
+    partial class Addcategoryforingredients
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.0-rtm-22752");
@@ -78,8 +79,7 @@ namespace MealsService.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("Name")
-                        .HasMaxLength(32);
+                    b.Property<int>("Name");
 
                     b.HasKey("Id");
 
@@ -110,24 +110,6 @@ namespace MealsService.Migrations
                     b.ToTable("Meals");
                 });
 
-            modelBuilder.Entity("MealsService.Models.MealDietType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("DietTypeId");
-
-                    b.Property<int>("MealId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DietTypeId");
-
-                    b.HasIndex("MealId");
-
-                    b.ToTable("MealDietTypes");
-                });
-
             modelBuilder.Entity("MealsService.Models.MealIngredient", b =>
                 {
                     b.Property<int>("Id")
@@ -156,31 +138,11 @@ namespace MealsService.Migrations
 
                     b.Property<int>("MealStyle");
 
-                    b.Property<string>("MealTypesList");
-
                     b.Property<int>("ShoppingFreq");
 
                     b.HasKey("UserId");
 
                     b.ToTable("MenuPreferences");
-                });
-
-            modelBuilder.Entity("MealsService.Models.RecipeStep", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("MealId");
-
-                    b.Property<int>("Order");
-
-                    b.Property<string>("Text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MealId");
-
-                    b.ToTable("RecipeSteps");
                 });
 
             modelBuilder.Entity("MealsService.Models.ScheduleDay", b =>
@@ -240,19 +202,6 @@ namespace MealsService.Migrations
                         .HasForeignKey("CategoryId");
                 });
 
-            modelBuilder.Entity("MealsService.Models.MealDietType", b =>
-                {
-                    b.HasOne("MealsService.Models.DietType", "DietType")
-                        .WithMany()
-                        .HasForeignKey("DietTypeId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("MealsService.Models.Meal", "Meal")
-                        .WithMany("MealDietTypes")
-                        .HasForeignKey("MealId")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
             modelBuilder.Entity("MealsService.Models.MealIngredient", b =>
                 {
                     b.HasOne("MealsService.Models.Ingredient", "Ingredient")
@@ -262,14 +211,6 @@ namespace MealsService.Migrations
 
                     b.HasOne("MealsService.Models.Meal", "Meal")
                         .WithMany("MealIngredients")
-                        .HasForeignKey("MealId")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity("MealsService.Models.RecipeStep", b =>
-                {
-                    b.HasOne("MealsService.Models.Meal", "Meal")
-                        .WithMany("Steps")
                         .HasForeignKey("MealId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Runtime.Serialization;
 
 namespace MealsService.Models
 {
@@ -24,10 +25,17 @@ namespace MealsService.Models
         public int PrepTime { get; set; }
         public int CookTime { get; set; }
 
+        /// <summary>
+        /// Relationships
+        /// </summary>
         public List<MealIngredient> MealIngredients { get; set; }
+        public List<RecipeStep> Steps { get; set; }
+
+        public List<MealDietType> MealDietTypes { get; set; }
 
         public enum Type
         {
+            Any,
             Breakfast,
             Lunch,
             Dinner,

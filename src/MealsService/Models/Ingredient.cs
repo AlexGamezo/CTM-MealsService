@@ -15,5 +15,10 @@ namespace MealsService.Models
         public string Name { get; set; }
         public string Brief { get; set; }
         public string Description { get; set; }
+        
+        /// <summary>
+        /// Relationships
+        /// </summary>
+        public IngredientCategory Category { get; set; }
     }
 }

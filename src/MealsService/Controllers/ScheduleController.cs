@@ -8,14 +8,16 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace MealsService.Controllers
 {
-    [Route("/api/[controller]")]
+    [Route("[controller]")]
     public class ScheduleController : Controller
     {
-        private ScheduleService ScheduleService { get; set; }
+        private ScheduleService _scheduleService { get; }
+        private RecipesService _recipesService { get; }
 
-        public ScheduleController(ScheduleService scheduleService)
+        public ScheduleController(ScheduleService scheduleService, RecipesService recipesService)
         {
-            ScheduleService = scheduleService;
+            _scheduleService = scheduleService;
+            _recipesService = recipesService;
         }
 
         [Authorize]
@@ -38,14 +40,14 @@ namespace MealsService.Controllers
             DateTime date;
             if (dateString == "")
             {
-                date = DateTime.Now;
+                date = DateTime.Now.Date;
             }
             else
             {
                 var dateParts = dateString.Split('-');
                 if (dateParts.Length != 3)
                 {
-                    return new JsonResult(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
                 }
 
                 int year, month, day;
@@ -53,7 +55,7 @@ namespace MealsService.Controllers
                     || !int.TryParse(dateParts[1], out month)
                     || !int.TryParse(dateParts[2], out day))
                 {
-                    return new JsonResult(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
                 }
                 date = new DateTime(year, month, day);
             }
@@ -62,13 +64,50 @@ namespace MealsService.Controllers
             if (days < 0) days += 7;
             var weekBeginning = date.Subtract(new TimeSpan(days, 0, 0, 0));
 
-            var scheduleDays = ScheduleService.GetSchedule(userId, weekBeginning).Select(ScheduleService.ToScheduleDayDto).ToList();
-            return new JsonResult(new
+            var scheduleDays = _scheduleService.GetSchedule(userId, weekBeginning)
+                .Select(_scheduleService.ToScheduleDayDto)
+                .ToList();
+
+            var recipeIds = scheduleDays.SelectMany(d => d.ScheduleSlots.Select(s => s.RecipeId));
+            var recipes = _recipesService.GetRecipes(recipeIds);
+
+            return Json(new SuccessResponse<object>( new
             {
-                scheduleDays
-            });
+                scheduleDays,
+                recipes
+            }));
         }
 
-        
+        [Route("{userId:int}"), HttpPost]
+        [Route("{userId:int}/{dateString:datetime}"), HttpPost]
+        public IActionResult GenerateSchedule(int userId, string dateString = "")
+        {
+            DateTime date;
+            if (dateString == "")
+            {
+                date = DateTime.UtcNow.Date;
+            }
+            else
+            {
+                var dateParts = dateString.Split('-');
+                if (dateParts.Length != 3)
+                {
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                }
+
+                int year, month, day;
+                if (!int.TryParse(dateParts[0], out year)
+                    || !int.TryParse(dateParts[1], out month)
+                    || !int.TryParse(dateParts[2], out day))
+                {
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                }
+                date = new DateTime(year, month, day);
+            }
+
+            _scheduleService.GenerateSchedule(userId, date, date.AddDays(7));
+
+            return Json(new SuccessResponse(true));
+        }
     }
 }

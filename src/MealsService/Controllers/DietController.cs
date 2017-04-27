@@ -2,13 +2,13 @@
 using System;
 using System.Linq;
 using System.IdentityModel.Tokens.Jwt;
-using MealsService.Responses;
 using MealsService.Services;
 using Microsoft.AspNetCore.Authorization;
+using MealsService.Responses;
 
 namespace MealsService.Controllers
 {
-    [Route("/api/[controller]")]
+    [Route("[controller]")]
     public class DietController : Controller
     {
         private DietService DietService { get; set; }
@@ -28,17 +28,48 @@ namespace MealsService.Controllers
             return Get(id);
         }
 
+        [Authorize]
         [Route("{userId}"), HttpGet]
         public IActionResult Get(int userId)
         {
-            var dietGoals = DietService.GetDietGoalsByUserId(userId);
-            var menuPreference = DietService.GetPreferences(userId);
-            return new JsonResult(new
+            if (VerifyPermission(userId))
             {
-                dietGoals,
-                shoppingFrequency = menuPreference.ShoppingFreq,
-                mealStyle = menuPreference.MealStyle.ToString()
-            });
+                var dietGoals = DietService.GetDietGoalsByUserId(userId);
+                var menuPreference = DietService.GetPreferences(userId);
+                return Json(new MenuPreferencesDto
+                {
+                    DietGoals = dietGoals,
+                    ShoppingFrequency = menuPreference.ShoppingFreq,
+                    MealStyle = menuPreference.MealStyle,
+                    MealTypes = menuPreference.MealTypes
+                });
+            }
+            else
+            {
+                this.Response.StatusCode = 403;
+                return Json(new ErrorResponse("You are not logged in as the requested user.", 403));
+            }
+        }
+
+        [Authorize]
+        [Route("{userId}"), HttpPut]
+        public IActionResult Set(int userId, [FromBody] MenuPreferencesDto mealPreferences)
+        {
+            if (VerifyPermission(userId))
+            {
+                DietService.UpdatePreferences(userId, mealPreferences);
+                if (mealPreferences.DietGoals != null)
+                {
+                    DietService.UpdateDietGoals(userId, mealPreferences);
+                }
+
+                return Json(new SuccessResponse(true));
+            }
+            else
+            {
+                this.Response.StatusCode = 403;
+                return Json(new ErrorResponse("You are not logged in as the requested user.", 403));
+            }
         }
 
         protected bool VerifyPermission(int userId)
