@@ -1,21 +1,36 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Threading.Tasks;
+using Amazon.S3;
+using Amazon.S3.Model;
+using MealsService.Configurations;
 using MealsService.Models;
 using MealsService.Requests;
 using MealsService.Responses;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace MealsService.Services
 {
     public class RecipesService
     {
-        private MealsDbContext _dbContext;
+        private string _recipeImagesBucketName;
+        private string _region;
 
-        public RecipesService(MealsDbContext dbContext)
+        private MealsDbContext _dbContext;
+        private IAmazonS3 _s3Client;
+
+        public RecipesService(MealsDbContext dbContext, IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
         {
             _dbContext = dbContext;
+            _s3Client = s3Client;
+            _recipeImagesBucketName = options.Value.RecipeImagesBucket;
+            _region = options.Value.Region;
         }
 
         public List<RecipeDto> ListRecipes(ListRecipesRequest request)
@@ -215,11 +230,55 @@ namespace MealsService.Services
             return null;
         }
 
+        public async Task<bool> UpdateRecipeImage(int recipeId, IFormFile avatarFile)
+        {
+            var foundRecipe = _dbContext.Meals.FirstOrDefault(p => p.Id == recipeId);
+            var extension = avatarFile.ContentType.Substring(avatarFile.ContentType.IndexOf("/") + 1);
+            var avatarFilename = recipeId + "." + extension;
+            var stream = new MemoryStream();
+
+            if (foundRecipe == null)
+            {
+                return false;
+            }
+
+            avatarFile.CopyTo(stream);
+
+            var response = await _s3Client.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = _recipeImagesBucketName,
+                InputStream = stream,
+                Key = avatarFilename,
+                CannedACL = S3CannedACL.PublicRead
+            });
+
+            if (response.HttpStatusCode == HttpStatusCode.OK)
+            {
+                foundRecipe.Image = GetRecipeImageUrl(avatarFilename);
+                return _dbContext.Entry(foundRecipe).State == EntityState.Unchanged || _dbContext.SaveChanges() == 1;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private string GetRecipeImageUrl(string filename)
+        {
+            return $"https://s3-{_region}.amazonaws.com/{_recipeImagesBucketName}/{filename}";
+        }
+
         public bool Remove(int id)
         {
             _dbContext.MealIngredients.RemoveRange(_dbContext.MealIngredients.Where(mi => mi.MealId == id));
             _dbContext.RecipeSteps.RemoveRange(_dbContext.RecipeSteps.Where(s =>  s.MealId == id));
             _dbContext.Meals.Remove(_dbContext.Meals.First(m => m.Id == id));
+            
+            foreach (var slot in _dbContext.ScheduleSlots.Where(s => s.MealId == id))
+            {
+                slot.MealId = 0;
+            }
+
             return _dbContext.SaveChanges() > 0;
         }
         
