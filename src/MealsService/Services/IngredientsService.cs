@@ -34,14 +34,14 @@ namespace MealsService.Services
 
             if (ingredientCategory == null)
             {
-                ingredient.Category = new IngredientCategory
+                ingredient.IngredientCategory = new IngredientCategory
                 {
                     Name = request.Category
                 };
             }
             else
             {
-                ingredient.Category = ingredientCategory;
+                ingredient.IngredientCategory = ingredientCategory;
             }
 
             _dbContext.Ingredients.Add(ingredient);
@@ -57,30 +57,48 @@ namespace MealsService.Services
             ingredient.Description = request.Description;
             ingredient.Brief = request.Brief;
 
-            if (request.Category != ingredient.Category.Name)
+            if (request.Category != ingredient.Category)
             {
                 var ingredientCategory = _dbContext.IngredientCategories
                     .FirstOrDefault(c => c.Name == request.Category);
 
                 if (ingredientCategory == null)
                 {
-                    ingredient.Category = new IngredientCategory
+                    ingredient.IngredientCategory = new IngredientCategory
                     {
                         Name = request.Category
                     };
                 }
                 else
                 {
-                    ingredient.Category = ingredientCategory;
+                    ingredient.IngredientCategory = ingredientCategory;
                 }
             }
 
             return _dbContext.Entry(ingredient).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
         }
 
+        public bool Delete(int id)
+        {
+            if (id == 0)
+            {
+                return false;
+            }
+
+            if (_dbContext.MealIngredients.Any(mi => mi.IngredientId == id))
+            {
+                return false;
+            }
+
+            var ingredient = _dbContext.Ingredients.Find(id);
+            _dbContext.Ingredients.Remove(ingredient);
+
+            return _dbContext.SaveChanges() > 0;
+        }
+
         public IEnumerable<Ingredient> GetIngredients(string search = "")
         {
-            IQueryable<Ingredient> ingredients = _dbContext.Ingredients;
+            IQueryable<Ingredient> ingredients = _dbContext.Ingredients.Include(i => i.IngredientCategory);
 
             if (search != "")
             {

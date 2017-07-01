@@ -47,7 +47,7 @@ namespace MealsService.Controllers
                 var dateParts = dateString.Split('-');
                 if (dateParts.Length != 3)
                 {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
                 }
 
                 int year, month, day;
@@ -55,7 +55,7 @@ namespace MealsService.Controllers
                     || !int.TryParse(dateParts[1], out month)
                     || !int.TryParse(dateParts[2], out day))
                 {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
                 }
                 date = new DateTime(year, month, day);
             }
@@ -78,6 +78,18 @@ namespace MealsService.Controllers
             }));
         }
 
+        [Route("me"), HttpPost]
+        [Route("me/{dateString:datetime}"), HttpPost]
+        public IActionResult GenerateSchedule(string dateString = "")
+        {
+            var claims = HttpContext.User.Claims;
+            int id = 0;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);
+
+            return GenerateSchedule(id, dateString);
+        }
+
         [Route("{userId:int}"), HttpPost]
         [Route("{userId:int}/{dateString:datetime}"), HttpPost]
         public IActionResult GenerateSchedule(int userId, string dateString = "")
@@ -92,7 +104,7 @@ namespace MealsService.Controllers
                 var dateParts = dateString.Split('-');
                 if (dateParts.Length != 3)
                 {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
                 }
 
                 int year, month, day;
@@ -100,14 +112,14 @@ namespace MealsService.Controllers
                     || !int.TryParse(dateParts[1], out month)
                     || !int.TryParse(dateParts[2], out day))
                 {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-m-d)", 400));
+                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
                 }
                 date = new DateTime(year, month, day);
             }
 
             _scheduleService.GenerateSchedule(userId, date, date.AddDays(7));
 
-            return Json(new SuccessResponse(true));
+            return Get(dateString);
         }
     }
 }

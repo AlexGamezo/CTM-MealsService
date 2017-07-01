@@ -1,6 +1,7 @@
 ﻿
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Runtime.Serialization;
 
 namespace MealsService.Models
 {
@@ -15,10 +16,13 @@ namespace MealsService.Models
         public string Name { get; set; }
         public string Brief { get; set; }
         public string Description { get; set; }
+        public string Category => IngredientCategory?.Name ?? "";
         
         /// <summary>
         /// Relationships
         /// </summary>
-        public IngredientCategory Category { get; set; }
+        [IgnoreDataMember]
+        [ForeignKey("CategoryId")]
+        public IngredientCategory IngredientCategory { get; set; }
     }
 }

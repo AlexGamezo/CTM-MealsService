@@ -38,7 +38,7 @@ namespace MealsService.Services
             IEnumerable<Meal> search = _dbContext.Meals
                 .Include(m => m.MealIngredients)
                     .ThenInclude(mi => mi.Ingredient)
-                    .ThenInclude(i => i.Category)
+                    .ThenInclude(i => i.IngredientCategory)
                 .Include(m => m.MealDietTypes);
 
             if (request.RecipeIds.Any())
@@ -75,7 +75,7 @@ namespace MealsService.Services
             var recipe = _dbContext.Meals
                 .Include(m => m.MealIngredients)
                     .ThenInclude(mi => mi.Ingredient)
-                    .ThenInclude(i => i.Category)
+                    .ThenInclude(i => i.IngredientCategory)
                 .Include(m => m.MealDietTypes)
                 .Include(m => m.Steps)
                 .FirstOrDefault(m => m.Id == id);
@@ -88,7 +88,7 @@ namespace MealsService.Services
             var recipes = _dbContext.Meals
                 .Include(m => m.MealIngredients)
                     .ThenInclude(mi => mi.Ingredient)
-                    .ThenInclude(i => i.Category)
+                    .ThenInclude(i => i.IngredientCategory)
                 .Include(m => m.MealDietTypes)
                 .Include(m => m.Steps)
                 .Where(m => ids.Contains(m.Id))
@@ -140,6 +140,10 @@ namespace MealsService.Services
                 else
                 {
                     changes = true;
+                    if (recipe.MealDietTypes == null)
+                    {
+                        recipe.MealDietTypes = new List<MealDietType>();
+                    }
                     recipe.MealDietTypes.Add(new MealDietType {DietTypeId = request.DietTypeIds[i]});
                 }
             }
@@ -175,6 +179,10 @@ namespace MealsService.Services
                 else
                 {
                     changes = true;
+                    if (recipe.MealIngredients == null)
+                    {
+                        recipe.MealIngredients = new List<MealIngredient>();
+                    }
                     recipe.MealIngredients.Add(new MealIngredient
                     {
                         IngredientId = request.Ingredients[i].IngredientId,
@@ -210,6 +218,10 @@ namespace MealsService.Services
                 else
                 {
                     changes = true;
+                    if (recipe.Steps == null)
+                    {
+                        recipe.Steps = new List<RecipeStep>();
+                    }
                     recipe.Steps.Add(new RecipeStep { Text = request.Steps[i].Text, Order = request.Steps[i].Order });
                 }
             }
@@ -319,7 +331,7 @@ namespace MealsService.Services
                 Quantity = mealIngredient.Amount,
                 Measure = mealIngredient.AmountType,
                 Name = mealIngredient.Ingredient.Name,
-                Category = mealIngredient.Ingredient.Category.Name
+                Category = mealIngredient.Ingredient.Category
             };
         }
 

@@ -55,9 +55,7 @@ namespace MealsService.Services
             
             //TODO: support multiple diet goals
             var dietGoal = _dietService.GetDietGoalsByUserId(userId).FirstOrDefault();
-
-            var daysForDiet = 7 - dietGoal.Current;
-
+            var daysForDiet = _dietService.GetTargetForDiet(userId, dietGoal.TargetDietId);
             var currentDay = new DateTime(start.Ticks, DateTimeKind.Utc);
             
             ClearSchedule(userId, start, end);
@@ -71,15 +69,6 @@ namespace MealsService.Services
                     UserId = userId,
                     ScheduleSlots = new List<ScheduleSlot>()
                 };
-
-                //TODO: Remove hard-coded meal-types
-                if (preference.MealTypes == null)
-                {
-                    preference.MealTypes = new List<Meal.Type>
-                    {
-                        Meal.Type.Lunch
-                    };
-                }
 
                 foreach (var mealType in preference.MealTypes)
                 {
@@ -144,7 +133,7 @@ namespace MealsService.Services
         private Meal GetRandomMeal(Meal.Type mealType, int dietTypeId = 0)
         {
             var meals = _dbContext.Meals.Include(m => m.MealDietTypes).ThenInclude(mdt => mdt.DietType)
-                .Where(m => m.MealType == mealType && dietTypeId == 0 || m.MealDietTypes.Any(mdt => mdt.DietTypeId == dietTypeId));
+                .Where(m => m.MealType == mealType && (dietTypeId == 0 || m.MealDietTypes.Any(mdt => mdt.DietTypeId == dietTypeId)));
             var index = _rand.Next(meals.Count());
 
             return meals.Skip(index).FirstOrDefault();

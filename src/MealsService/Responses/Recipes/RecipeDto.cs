@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
 using MealsService.Models;
 
-
-namespace MealsService.Responses
+namespace MealsService.Responses.Recipes
 {
     public class RecipeDto
     {

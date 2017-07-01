@@ -79,7 +79,7 @@ namespace MealsService.Controllers
         }
 
         [Authorize]
-        [HttpPost("{id:int}/image")]
+        [HttpPost("{recipeId:int}/image")]
         public async Task<IActionResult> UploadImageAsync(int recipeId)
         {
             var claims = HttpContext.User.Claims;

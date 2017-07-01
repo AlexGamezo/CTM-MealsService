@@ -2,9 +2,11 @@
 using System;
 using System.Linq;
 using System.IdentityModel.Tokens.Jwt;
+using MealsService.Models;
 using MealsService.Services;
 using Microsoft.AspNetCore.Authorization;
 using MealsService.Responses;
+using MealsService.Responses.Diets;
 
 namespace MealsService.Controllers
 {
@@ -38,7 +40,7 @@ namespace MealsService.Controllers
                 var menuPreference = DietService.GetPreferences(userId);
                 return Json(new MenuPreferencesDto
                 {
-                    DietGoals = dietGoals,
+                    DietGoals = dietGoals.Select(ToDto).ToList(),
                     ShoppingFrequency = menuPreference.ShoppingFreq,
                     MealStyle = menuPreference.MealStyle,
                     MealTypes = menuPreference.MealTypes
@@ -75,8 +77,8 @@ namespace MealsService.Controllers
         protected bool VerifyPermission(int userId)
         {
             var claims = HttpContext.User.Claims;
-            int id = 0;
-            bool isAdmin = false;
+            int id;
+            bool isAdmin;
 
             Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
             Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);

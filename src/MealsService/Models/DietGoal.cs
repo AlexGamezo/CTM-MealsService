@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
@@ -22,6 +23,12 @@ namespace MealsService.Models
         public int Target { get; set; }
         public int Current { get; set; }
 
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public DateTime Created { get; set; }
+
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
+        public DateTime Updated { get; set; }
+
         //Navigation properties
         [IgnoreDataMember]
         [ForeignKey("TargetDietId")]
@@ -33,7 +40,7 @@ namespace MealsService.Models
     public enum ReductionRate
     {
         Weekly,
-        Bimonthly,
+        Biweekly,
         Monthly
     }
 }

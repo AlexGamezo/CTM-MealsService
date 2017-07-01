@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using Amazon.S3;
+using MealsService.Configurations;
 using MealsService.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -36,8 +35,6 @@ namespace MealsService
             var connection = Configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<MealsDbContext>(options => options.UseMySql(connection));
 
-            services.AddCors();
-
             // Add framework services.
             services.AddMvc();
             services.AddScoped<Services.RecipesService>();
@@ -45,6 +42,12 @@ namespace MealsService
             services.AddScoped<Services.DietService>();
             services.AddScoped<Services.IngredientsService>();
             services.AddScoped<Services.DietTypeService>();
+
+            services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
+            services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
+            services.AddAWSService<IAmazonS3>();
+
+            services.AddCors();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

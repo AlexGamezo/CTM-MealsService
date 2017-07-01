@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace MealsService.Responses
+namespace MealsService.Responses.Schedules
 {
     public class ScheduleDayDto
     {

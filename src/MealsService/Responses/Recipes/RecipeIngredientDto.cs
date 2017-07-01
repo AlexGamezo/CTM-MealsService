@@ -1,5 +1,5 @@
 ﻿
-namespace MealsService.Responses
+namespace MealsService.Responses.Recipes
 {
     public class RecipeIngredientDto
     {

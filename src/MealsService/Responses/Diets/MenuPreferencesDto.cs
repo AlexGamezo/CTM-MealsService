@@ -3,11 +3,11 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System.Collections.Generic;
 
-namespace MealsService.Responses
+namespace MealsService.Responses.Diets
 {
     public class MenuPreferencesDto
     {
-        public List<DietGoal> DietGoals { get; set; }
+        public List<DietGoalDto> DietGoals { get; set; }
 
         public int ShoppingFrequency { get; set; }
 

@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using MealsService.Models;
 using Microsoft.EntityFrameworkCore;
-using MealsService.Responses;
+using MealsService.Responses.Diets;
 
 namespace MealsService.Services
 {
@@ -109,9 +110,31 @@ namespace MealsService.Services
             return dietGoals;
         }
 
-        public MenuPreference GetPreferences(int userId)
+        public int GetTargetForDiet(int userId, int dietTypeId, DateTime? when = null)
+        {
+            var dietGoal = GetDietGoalsByUserId(userId).FirstOrDefault(g => g.TargetDietId == dietTypeId);
+
+            if (!when.HasValue)
+            {
+                when = DateTime.UtcNow;
+            }
+
+            var changeRate = dietGoal.Current < dietGoal.Target ? 1 : -1;
+
+            if (dietGoal.ReductionRate == ReductionRate.Biweekly) changeRate *= 2;
+            if (dietGoal.ReductionRate == ReductionRate.Monthly) changeRate *= 4;
+
+            var weeksPassed = (int) ((when - dietGoal.Updated).Value.TotalDays / 7);
+
+            var scaled = dietGoal.Current + (weeksPassed / changeRate);
+
+            return Math.Max(scaled, dietGoal.Target);
+        }
+
+        public MenuPreferencesDto GetPreferences(int userId)
         {
             var preferences = _dbContext.MenuPreferences.FirstOrDefault(p => p.UserId == userId);
+            var dietGoals = GetDietGoalsByUserId(userId);
 
             if (preferences == null)
             {
@@ -124,8 +147,31 @@ namespace MealsService.Services
                 _dbContext.MenuPreferences.Add(preferences);
                 _dbContext.SaveChanges();
             }
+            else if (preferences.MealTypes == null)
+            {
+                preferences.MealTypes = new List<Meal.Type>{Meal.Type.Dinner};
+                _dbContext.SaveChanges();
+            }
 
-            return preferences;
+            return new MenuPreferencesDto
+            {
+                DietGoals = dietGoals.Select(ToDto).ToList(),
+                ShoppingFrequency = preferences.ShoppingFreq,
+                MealStyle = preferences.MealStyle,
+                MealTypes = preferences.MealTypes
+            };
+        }
+
+        protected DietGoalDto ToDto(DietGoal model)
+        {
+            return new DietGoalDto
+            {
+                TargetDietId = model.TargetDietId,
+                Current = model.Current,
+                Target = model.Target,
+                ReductionRate = model.ReductionRate,
+                Updated = (long)(new TimeSpan(model.Updated.Ticks)).TotalMilliseconds
+            };
         }
     }
 }
