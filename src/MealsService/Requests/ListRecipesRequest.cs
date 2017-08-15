@@ -1,6 +1,7 @@
 ﻿
 using System.Collections.Generic;
-using MealsService.Models;
+
+using MealsService.Recipes.Data;
 
 namespace MealsService.Requests
 {

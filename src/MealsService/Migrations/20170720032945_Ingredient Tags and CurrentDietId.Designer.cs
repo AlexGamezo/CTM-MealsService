@@ -10,9 +10,10 @@ using MealsService.Recipes.Data;
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170720032945_Ingredient Tags and CurrentDietId")]
+    partial class IngredientTagsandCurrentDietId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.2");
@@ -91,8 +92,6 @@ namespace MealsService.Migrations
 
                     b.Property<string>("Description");
 
-                    b.Property<string>("Image");
-
                     b.Property<string>("Name");
 
                     b.HasKey("Id");
@@ -164,8 +163,6 @@ namespace MealsService.Migrations
                         .ValueGeneratedOnAdd();
 
                     b.Property<DateTime>("EndDate");
-
-                    b.Property<string>("ExcludedTags");
 
                     b.Property<DateTime>("StartDate");
 

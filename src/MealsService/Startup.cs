@@ -2,8 +2,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Amazon.S3;
-using MealsService.Configurations;
-using MealsService.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +9,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+
+using MealsService.Configurations;
+using MealsService.Recipes;
+using MealsService.Services;
+using MealsService.Diets;
+using MealsService.Ingredients;
+using MealsService.Tags;
 
 namespace MealsService
 {
@@ -20,8 +25,8 @@ namespace MealsService
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
+                .AddJsonFile("appsettings.json", true, true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
         }
@@ -37,11 +42,12 @@ namespace MealsService
 
             // Add framework services.
             services.AddMvc();
-            services.AddScoped<Services.RecipesService>();
-            services.AddScoped<Services.ScheduleService>();
-            services.AddScoped<Services.DietService>();
-            services.AddScoped<Services.IngredientsService>();
-            services.AddScoped<Services.DietTypeService>();
+            services.AddScoped<RecipesService>();
+            services.AddScoped<ScheduleService>();
+            services.AddScoped<DietService>();
+            services.AddScoped<IngredientsService>();
+            services.AddScoped<TagsService>();
+            services.AddScoped<DietTypeService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
@@ -64,9 +70,10 @@ namespace MealsService
 
             app.UseCors(builder =>
             {
-                builder.WithOrigins("http://localhost:63516")
+                builder.WithOrigins("http://localhost:63516", "http://localhost:63517")
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    ;
             });
 
             var tokenValidationParameters = new TokenValidationParameters

@@ -1,4 +1,6 @@
 ﻿
+using System.Collections.Generic;
+
 namespace MealsService.Requests
 {
     public class CreateIngredientRequest
@@ -7,5 +9,6 @@ namespace MealsService.Requests
         public string Brief;
         public string Description;
         public string Category;
+        public List<string> Tags;
     }
 }
