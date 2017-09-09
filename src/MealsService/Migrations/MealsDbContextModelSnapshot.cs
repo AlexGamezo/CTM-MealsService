@@ -278,6 +278,26 @@ namespace MealsService.Migrations
                     b.ToTable("RecipeSteps");
                 });
 
+            modelBuilder.Entity("MealsService.Recipes.Data.RecipeVote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int?>("MealId");
+
+                    b.Property<int>("RecipeId");
+
+                    b.Property<int>("UserId");
+
+                    b.Property<int>("Vote");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealId");
+
+                    b.ToTable("RecipeVotes");
+                });
+
             modelBuilder.Entity("MealsService.Tags.Data.Tag", b =>
                 {
                     b.Property<int>("Id")
@@ -379,6 +399,13 @@ namespace MealsService.Migrations
                         .WithMany("Steps")
                         .HasForeignKey("MealId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("MealsService.Recipes.Data.RecipeVote", b =>
+                {
+                    b.HasOne("MealsService.Recipes.Data.Meal")
+                        .WithMany("Votes")
+                        .HasForeignKey("MealId");
                 });
         }
     }

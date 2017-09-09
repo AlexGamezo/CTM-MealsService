@@ -181,7 +181,7 @@ namespace MealsService.Services
                     .ToList();
             }
 
-            var consumeIngredientIds = request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList();
+            var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList() : new List<int>();
             
             var sortedRecipes = _dbContext.Meals
                 .Include(m => m.MealIngredients)
