@@ -45,9 +45,15 @@ namespace MealsService.Ingredients
         [HttpPost]
         public IActionResult Create([FromBody] CreateIngredientRequest create)
         {
-            var success = _ingredientsService.Create(create);
+            var ingredient = _ingredientsService.Create(create);
 
-            return Json(new SuccessResponse(success));
+            if (ingredient == null)
+            {
+                Response.StatusCode = 500;
+                return Json(new ErrorResponse("Could not create ingredient", 500));
+            }
+
+            return Json(new {ingredient});
         }
 
         [Authorize]

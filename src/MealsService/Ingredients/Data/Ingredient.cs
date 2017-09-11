@@ -39,6 +39,6 @@ namespace MealsService.Ingredients.Data
         [ForeignKey("CategoryId")]
         public IngredientCategory IngredientCategory { get; set; }
         [IgnoreDataMember]
-        public List<IngredientTag> IngredientTags { get; set; }
+        public List<IngredientTag> IngredientTags { get; set; } = new List<IngredientTag>();
     }
 }

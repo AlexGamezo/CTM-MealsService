@@ -100,21 +100,24 @@ namespace MealsService.Services
 
                 foreach (var mealType in preference.MealTypes)
                 {
+                    var slot = new ScheduleSlot
+                    {
+                        Type = mealType,
+                    };
+
                     randomRecipeRequest.MealType = mealType;
                     var meal = GetRandomMeal(randomRecipeRequest, usedRecipeCounts);
 
-                    if (!usedRecipeCounts.ContainsKey(meal.Id))
+                    if (meal != null)
                     {
-                        usedRecipeCounts.Add(meal.Id, 0);
+                        if (!usedRecipeCounts.ContainsKey(meal.Id))
+                        {
+                            usedRecipeCounts.Add(meal.Id, 0);
+                        }
+                        usedRecipeCounts[meal.Id]++;
+
+                        slot.MealId = meal.Id;
                     }
-                    usedRecipeCounts[meal.Id]++;
-
-                    var slot = new ScheduleSlot
-                    {
-                        MealId = meal.Id,
-                        Type = meal.MealType,
-                    };
-
                     scheduleDay.ScheduleSlots.Add(slot);
                 }
 
@@ -201,10 +204,11 @@ namespace MealsService.Services
             var meal = _dbContext.Meals.Include(m => m.MealDietTypes).ThenInclude(mdt => mdt.DietType)
                 .FirstOrDefault(m => m.Id == recipeId);
             
-            if (meal == null)
+            //TODO: Add logger
+            /*if (meal == null)
             {
                 throw new Exception("No meals for type " + request.MealType);
-            }
+            }*/
 
             return meal;
         }

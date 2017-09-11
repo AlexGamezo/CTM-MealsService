@@ -10,6 +10,7 @@ namespace MealsService
             var host = new WebHostBuilder()
                 .UseKestrel()
                 .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseIISIntegration()
                 .UseStartup<Startup>()
                 .UseUrls("http://localhost:5002")
                 .Build();

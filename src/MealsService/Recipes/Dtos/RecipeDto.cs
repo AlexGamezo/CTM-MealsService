@@ -20,6 +20,8 @@ namespace MealsService.Recipes.Dtos
 
         public string MealType { get; set; }
 
+        public string Source { get; set; }
+
         [JsonConverter(typeof(StringEnumConverter))]
         public RecipeVote.VoteType Vote { get; set; }
 

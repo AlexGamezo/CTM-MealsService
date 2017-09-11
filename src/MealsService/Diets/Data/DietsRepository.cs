@@ -1,4 +1,5 @@
 ﻿
+using System;
 using MealsService.Recipes.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
@@ -98,6 +99,20 @@ namespace MealsService.Diets.Data
                 MealStyle = MealStyle.ChefSpecial,
                 MealTypes = new List<Meal.Type> { Meal.Type.Dinner },
                 CurrentDietTypeId = _context.DietTypes.FirstOrDefault().Id
+            };
+        }
+
+        public DietGoal DefaultDietGoal(int userId)
+        {
+            return new DietGoal
+            {
+                UserId = userId,
+                Created = DateTime.UtcNow,
+                Updated = DateTime.UtcNow,
+                Current = 7,
+                Target = 7,
+                ReductionRate = ReductionRate.Weekly,
+                TargetDietId = 1
             };
         }
     }

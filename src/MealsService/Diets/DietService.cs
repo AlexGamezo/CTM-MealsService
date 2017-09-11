@@ -81,7 +81,14 @@ namespace MealsService.Diets
 
         public List<DietGoalDto> GetDietGoalsByUserId(int userId)
         {
-            return _repository.GetDietGoals(userId).Select(ToDto).ToList();
+            var dietGoals = _repository.GetDietGoals(userId);
+
+            if (!dietGoals.Any())
+            {
+                dietGoals.Add(_repository.DefaultDietGoal(userId));
+            }
+
+            return dietGoals.Select(ToDto).ToList();
         }
 
         public int GetTargetForDiet(int userId, int dietTypeId, DateTime? when = null)

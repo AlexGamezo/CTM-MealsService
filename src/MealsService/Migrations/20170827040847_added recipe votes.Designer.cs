@@ -10,9 +10,10 @@ using MealsService.Recipes.Data;
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170827040847_added recipe votes")]
+    partial class addedrecipevotes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.2");
@@ -214,9 +215,6 @@ namespace MealsService.Migrations
                     b.Property<string>("Name");
 
                     b.Property<int>("PrepTime");
-
-                    b.Property<string>("Source")
-                        .HasColumnType("varchar(200)");
 
                     b.HasKey("Id");
 

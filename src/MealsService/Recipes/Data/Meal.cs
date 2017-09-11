@@ -24,6 +24,9 @@ namespace MealsService.Recipes.Data
         public int PrepTime { get; set; }
         public int CookTime { get; set; }
 
+        [Column(TypeName = "varchar(200)")]
+        public string Source { get; set; }
+
         /// <summary>
         /// Relationships
         /// </summary>

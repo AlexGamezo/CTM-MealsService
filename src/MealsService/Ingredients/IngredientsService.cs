@@ -45,7 +45,7 @@ namespace MealsService.Ingredients
                 .FirstOrDefault(t => t.Id == ingredient);
         }
 
-        public bool Create(CreateIngredientRequest request)
+        public Ingredient Create(CreateIngredientRequest request)
         {
             var ingredient = new Ingredient
             {
@@ -69,7 +69,12 @@ namespace MealsService.Ingredients
 
             _dbContext.Ingredients.Add(ingredient);
 
-            return _dbContext.SaveChanges() > 0;
+            if (_dbContext.SaveChanges() > 0)
+            {
+                return ingredient;
+            }
+
+            return null;
         }
 
         public bool Update(UpdateIngredientRequest request)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
@@ -36,6 +37,7 @@ namespace MealsService.Diets
             if (VerifyPermission(userId))
             {
                 var dietGoals = DietService.GetDietGoalsByUserId(userId);
+
                 var menuPreference = DietService.GetPreferences(userId);
                 return Json(new DietDto
                 { 

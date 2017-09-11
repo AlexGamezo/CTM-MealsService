@@ -346,6 +346,7 @@ namespace MealsService.Recipes
                 CookTime = meal.CookTime,
                 PrepTime = meal.PrepTime,
                 MealType = meal.MealType.ToString(),
+                Source = meal.Source,
                 Ingredients = meal.MealIngredients?.Select(ToRecipeIngredientDto).ToList(),
                 Steps = meal.Steps,
                 DietTypes = meal.MealDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),
