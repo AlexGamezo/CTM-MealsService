@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 
 using MealsService.Recipes.Data;
 using MealsService.Diets;
-using MealsService.Ingredients.Data;
 using MealsService.Recipes;
 using MealsService.Models;
 using MealsService.Recipes.Dtos;
@@ -62,7 +61,7 @@ namespace MealsService.Services
             
             //TODO: support multiple diet goals
             var dietGoal = _dietService.GetDietGoalsByUserId(userId).FirstOrDefault();
-            var daysForDiet = 7 - _dietService.GetTargetForDiet(userId, dietGoal.TargetDietId);
+            var daysForDiet = Math.Max(7 - _dietService.GetTargetForDiet(userId, dietGoal.TargetDietId), 1);
             var currentDay = new DateTime(start.Ticks, DateTimeKind.Utc);
             
             ClearSchedule(userId, start, end);
@@ -90,35 +89,39 @@ namespace MealsService.Services
                 var scheduleDay = new ScheduleDay
                 {
                     Date = currentDay,
-                    DietTypeId = daysForDiet > 0 ? dietGoal.TargetDietId : preference.CurrentDietId,
+                    DietTypeId = daysForDiet > 0 ? dietGoal.TargetDietId : 0,
                     UserId = userId,
                     ScheduleSlots = new List<ScheduleSlot>(),
                     Created = DateTime.UtcNow,
                     Modified = DateTime.UtcNow
                 };
-                randomRecipeRequest.DietTypeId = scheduleDay.DietTypeId;
 
-                foreach (var mealType in preference.MealTypes)
+                if (scheduleDay.DietTypeId > 0)
                 {
-                    var slot = new ScheduleSlot
-                    {
-                        Type = mealType,
-                    };
+                    randomRecipeRequest.DietTypeId = scheduleDay.DietTypeId;
 
-                    randomRecipeRequest.MealType = mealType;
-                    var meal = GetRandomMeal(randomRecipeRequest, usedRecipeCounts);
-
-                    if (meal != null)
+                    foreach (var mealType in preference.MealTypes)
                     {
-                        if (!usedRecipeCounts.ContainsKey(meal.Id))
+                        var slot = new ScheduleSlot
                         {
-                            usedRecipeCounts.Add(meal.Id, 0);
-                        }
-                        usedRecipeCounts[meal.Id]++;
+                            Type = mealType,
+                        };
 
-                        slot.MealId = meal.Id;
+                        randomRecipeRequest.MealType = mealType;
+                        var meal = GetRandomMeal(randomRecipeRequest, usedRecipeCounts);
+
+                        if (meal != null)
+                        {
+                            if (!usedRecipeCounts.ContainsKey(meal.Id))
+                            {
+                                usedRecipeCounts.Add(meal.Id, 0);
+                            }
+                            usedRecipeCounts[meal.Id]++;
+
+                            slot.MealId = meal.Id;
+                        }
+                        scheduleDay.ScheduleSlots.Add(slot);
                     }
-                    scheduleDay.ScheduleSlots.Add(slot);
                 }
 
                 _dbContext.ScheduleDays.Add(scheduleDay);
@@ -137,6 +140,7 @@ namespace MealsService.Services
                 Date = day.Date,
                 LastModified = day.Modified,
                 DietType = day.DietType?.Name,
+                DietTypeId = day.DietTypeId,
                 ScheduleSlots = day.ScheduleSlots.Select(ToScheduleSlotDto).ToList()
             };
         }

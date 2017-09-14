@@ -60,6 +60,7 @@ namespace MealsService.Diets
                 //TODO: Move to a "FromDto" method, for consistent single-point conversion
                 var fromDto = new DietGoal
                 {
+                    UserId = userId,
                     TargetDietId = goal.TargetDietId,
                     Target = goal.Target,
                     Current = goal.Current,

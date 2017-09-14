@@ -10,6 +10,7 @@ namespace MealsService.Responses.Schedules
         public DateTime LastModified { get; set; }
 
         public string DietType { get; set; }
+        public int DietTypeId { get; set; }
 
         public List<ScheduleSlotDto> ScheduleSlots { get; set; }
     }

@@ -47,6 +47,8 @@ namespace MealsService.Diets.Data
                 return false;
             }
 
+            goal.UserId = userId;
+
             _context.DietGoals.Add(goal);
             return _context.SaveChanges() > 0; 
         }

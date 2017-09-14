@@ -101,6 +101,11 @@ namespace MealsService.Controllers
             if (dateString == "")
             {
                 date = DateTime.UtcNow.Date;
+
+                var days = (int)date.DayOfWeek - 1;
+                if (days < 0) days += 7;
+                //date should be beginning of the week
+                date = date.Subtract(new TimeSpan(days, 0, 0, 0));
             }
             else
             {
