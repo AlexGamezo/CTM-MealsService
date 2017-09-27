@@ -40,6 +40,7 @@ namespace MealsService.Recipes
                 .Include(m => m.MealIngredients)
                     .ThenInclude(mi => mi.Ingredient)
                     .ThenInclude(i => i.IngredientCategory)
+                .Include(m => m.Steps)
                 .Include(m => m.MealDietTypes);
 
             if (request.RecipeIds.Any())
@@ -348,7 +349,7 @@ namespace MealsService.Recipes
                 MealType = meal.MealType.ToString(),
                 Source = meal.Source,
                 Ingredients = meal.MealIngredients?.Select(ToRecipeIngredientDto).ToList(),
-                Steps = meal.Steps,
+                Steps = meal.Steps.OrderBy(s => s.Order).ToList(),
                 DietTypes = meal.MealDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),
                 Vote = meal.Votes != null && meal.Votes.Any() ? meal.Votes.First().Vote : RecipeVote.VoteType.UNKNOWN
             };
