@@ -348,8 +348,12 @@ namespace MealsService.Recipes
                 PrepTime = meal.PrepTime,
                 MealType = meal.MealType.ToString(),
                 Source = meal.Source,
-                Ingredients = meal.MealIngredients?.Select(ToRecipeIngredientDto).ToList(),
-                Steps = meal.Steps.OrderBy(s => s.Order).ToList(),
+                Ingredients = meal.MealIngredients?.Select(ToRecipeIngredientDto)
+                                    .OrderByDescending(i => !string.IsNullOrEmpty(i.Image))
+                                    .ToList(),
+                Steps = meal.Steps
+                            .OrderBy(s => s.Order)
+                            .ToList(),
                 DietTypes = meal.MealDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),
                 Vote = meal.Votes != null && meal.Votes.Any() ? meal.Votes.First().Vote : RecipeVote.VoteType.UNKNOWN
             };
