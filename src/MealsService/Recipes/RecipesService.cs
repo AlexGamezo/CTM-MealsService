@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -84,7 +83,7 @@ namespace MealsService.Recipes
 
             if (userId > 0)
             {
-                _dbContext.Entry(recipe).Collection(b => b.Votes).Query().Where(v => v.UserId == id).Load();
+                _dbContext.Entry(recipe).Collection(b => b.Votes).Query().Where(v => v.UserId == userId).Load();
             }
 
             return ToRecipeDto(recipe);

@@ -63,7 +63,7 @@ namespace MealsService.Recipes
 
             Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out userId);
 
-            var success = _recipesService.Vote(userId, id, request.Vote);
+            var success = _recipesService.Vote(id, userId, request.Vote);
 
             return Json(new SuccessResponse());
         }

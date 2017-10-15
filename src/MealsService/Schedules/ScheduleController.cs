@@ -8,6 +8,7 @@ using MealsService.Responses;
 using MealsService.Services;
 using MealsService.Recipes;
 using MealsService.Requests;
+using MealsService.Responses.Schedules;
 
 namespace MealsService.Controllers
 {
@@ -81,12 +82,33 @@ namespace MealsService.Controllers
             }));
         }
 
+        [Route("me/{slotId:int}"), HttpPost]
+        public IActionResult RegenerateSlot(int slotId) 
+        {
+            var claims = HttpContext.User.Claims;
+            int id;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);
+
+            var newSlot = _scheduleService.RegenerateSlot(id, slotId);
+
+            if (newSlot != null)
+            {
+                return Json(new SuccessResponse<object>(
+                new {
+                    slot = newSlot
+                }));
+            }
+
+            return Json(new ErrorResponse("Could not regenerate slot", 500));
+        }
+
         [Route("me"), HttpPost]
         [Route("me/{dateString:datetime}"), HttpPost]
         public IActionResult GenerateSchedule([FromBody]GenerateScheduleRequest request, string dateString = "")
         {
             var claims = HttpContext.User.Claims;
-            int id = 0;
+            int id;
 
             Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);
 

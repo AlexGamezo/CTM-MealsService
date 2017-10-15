@@ -54,6 +54,47 @@ namespace MealsService.Services
             return schedule;
         }
 
+        public ScheduleSlotDto RegenerateSlot(int userId, int slotId)
+        {
+            var slot = _dbContext.ScheduleSlots
+                .Include(s => s.ScheduleDay)
+                .FirstOrDefault(s => s.Id == slotId);
+
+            if (slot?.ScheduleDay.UserId != userId)
+            {
+                return null;
+            }
+
+            //TODO: Add tracking for individual slot regeneration
+
+            var randomRecipeRequest = new RandomRecipeRequest
+            {
+                DietTypeId = slot.ScheduleDay.DietTypeId,
+                MealType = slot.Type,
+            };
+
+            var recipeWeights = new Dictionary<int, int>
+            {
+                {slot.MealId, 1}
+            };
+
+            //TODO: preference recipes not present this week
+            //TODO: exclude recipes voted against
+            //TODO: Pull meal preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
+            var recipe = GetRandomMeal(randomRecipeRequest, recipeWeights);
+
+            if (recipe != null && recipe.Id != slot.MealId)
+            {
+                slot.MealId = recipe.Id;
+                if (_dbContext.SaveChanges() > 0)
+                {
+                    return ToScheduleSlotDto(slot);
+                }
+            }
+
+            return null;
+        }
+
         public void GenerateSchedule(int userId, DateTime start, DateTime end, GenerateScheduleRequest request)
         {
             //Pull the preferences to know which meals to filter to (Quick&Dirty, Healthy, etc)
@@ -205,7 +246,9 @@ namespace MealsService.Services
 
             var recipeId = sortedRecipes.Skip(index).Select(m => m.Id).FirstOrDefault();
 
-            var meal = _dbContext.Meals.Include(m => m.MealDietTypes).ThenInclude(mdt => mdt.DietType)
+            var meal = _dbContext.Meals
+                .Include(m => m.MealDietTypes)
+                    .ThenInclude(mdt => mdt.DietType)
                 .FirstOrDefault(m => m.Id == recipeId);
             
             //TODO: Add logger

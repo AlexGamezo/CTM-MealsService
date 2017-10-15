@@ -32,6 +32,8 @@ namespace MealsService.Recipes.Data
         /// </summary>
         public List<MealIngredient> MealIngredients { get; set; }
         public List<RecipeStep> Steps { get; set; }
+
+        [ForeignKey("RecipeId")]
         public List<RecipeVote> Votes { get; set; }
 
         public List<MealDietType> MealDietTypes { get; set; }
