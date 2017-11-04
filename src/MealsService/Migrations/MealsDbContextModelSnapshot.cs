@@ -133,6 +133,20 @@ namespace MealsService.Migrations
                     b.ToTable("IngredientTags");
                 });
 
+            modelBuilder.Entity("MealsService.Ingredients.Data.MeasureType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Name");
+
+                    b.Property<string>("Short");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MeasureType");
+                });
+
             modelBuilder.Entity("MealsService.Models.ScheduleDay", b =>
                 {
                     b.Property<int>("Id")
@@ -254,11 +268,15 @@ namespace MealsService.Migrations
 
                     b.Property<int>("MealId");
 
+                    b.Property<int>("MeasureTypeId");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IngredientId");
 
                     b.HasIndex("MealId");
+
+                    b.HasIndex("MeasureTypeId");
 
                     b.ToTable("MealIngredients");
                 });
@@ -286,8 +304,6 @@ namespace MealsService.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<int?>("MealId");
-
                     b.Property<int>("RecipeId");
 
                     b.Property<int>("UserId");
@@ -296,9 +312,58 @@ namespace MealsService.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("MealId");
+                    b.HasIndex("RecipeId");
 
                     b.ToTable("RecipeVotes");
+                });
+
+            modelBuilder.Entity("MealsService.ShoppingList.Data.ShoppingListItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<float>("Amount");
+
+                    b.Property<bool>("Checked");
+
+                    b.Property<int>("IngredientId");
+
+                    b.Property<string>("IngredientName")
+                        .HasMaxLength(64);
+
+                    b.Property<bool>("ManuallyAdded");
+
+                    b.Property<int>("MeasureTypeId");
+
+                    b.Property<int>("UserId");
+
+                    b.Property<DateTime>("WeekStart");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IngredientId");
+
+                    b.HasIndex("MeasureTypeId");
+
+                    b.ToTable("ShoppingListItems");
+                });
+
+            modelBuilder.Entity("MealsService.ShoppingList.Data.ShoppingListItemScheduleSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("ScheduleSlotId");
+
+                    b.Property<int>("ShoppingListItemId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleSlotId");
+
+                    b.HasIndex("ShoppingListItemId");
+
+                    b.ToTable("ShoppingListItemScheduleSlot");
                 });
 
             modelBuilder.Entity("MealsService.Tags.Data.Tag", b =>
@@ -394,6 +459,11 @@ namespace MealsService.Migrations
                         .WithMany("MealIngredients")
                         .HasForeignKey("MealId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
+                        .WithMany()
+                        .HasForeignKey("MeasureTypeId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("MealsService.Recipes.Data.RecipeStep", b =>
@@ -408,7 +478,34 @@ namespace MealsService.Migrations
                 {
                     b.HasOne("MealsService.Recipes.Data.Meal")
                         .WithMany("Votes")
-                        .HasForeignKey("MealId");
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("MealsService.ShoppingList.Data.ShoppingListItem", b =>
+                {
+                    b.HasOne("MealsService.Ingredients.Data.Ingredient", "Ingredient")
+                        .WithMany()
+                        .HasForeignKey("IngredientId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
+                        .WithMany()
+                        .HasForeignKey("MeasureTypeId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("MealsService.ShoppingList.Data.ShoppingListItemScheduleSlot", b =>
+                {
+                    b.HasOne("MealsService.Models.ScheduleSlot", "ScheduleSlot")
+                        .WithMany()
+                        .HasForeignKey("ScheduleSlotId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("MealsService.ShoppingList.Data.ShoppingListItem", "ShoppingListItem")
+                        .WithMany("ScheduleSlots")
+                        .HasForeignKey("ShoppingListItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
         }
     }

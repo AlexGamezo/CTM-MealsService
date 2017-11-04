@@ -10,6 +10,7 @@ using MealsService.Models;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
+using MealsService.ShoppingList;
 
 namespace MealsService.Services
 {
@@ -18,16 +19,16 @@ namespace MealsService.Services
         private MealsDbContext _dbContext;
 
         private DietService _dietService;
-        private RecipesService _recipesService;
+        private IServiceProvider _serviceProvider;
 
         private Random _rand;
 
-        public ScheduleService(MealsDbContext dbContext, DietService dietService, RecipesService recipesService)
+        public ScheduleService(MealsDbContext dbContext, DietService dietService, IServiceProvider serviceProvider)
         {
             _dbContext = dbContext;
 
             _dietService = dietService;
-            _recipesService = recipesService;
+            _serviceProvider = serviceProvider;
 
             _rand = new Random();
         }
@@ -82,6 +83,13 @@ namespace MealsService.Services
             //TODO: exclude recipes voted against
             //TODO: Pull meal preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
             var recipe = GetRandomMeal(randomRecipeRequest, recipeWeights);
+
+            //TODO: Update shopping list instead of clearing it
+            var days = (int)slot.ScheduleDay.Date.DayOfWeek - 1;
+            if (days < 0) days += 7;
+            var weekBeginning = slot.ScheduleDay.Date.Subtract(new TimeSpan(days, 0, 0, 0));
+
+            ((ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService))).ClearShoppingList(userId, weekBeginning);
 
             if (recipe != null && recipe.Id != slot.MealId)
             {

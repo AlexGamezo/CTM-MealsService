@@ -15,6 +15,7 @@ using MealsService.Recipes;
 using MealsService.Services;
 using MealsService.Diets;
 using MealsService.Ingredients;
+using MealsService.ShoppingList;
 using MealsService.Tags;
 
 namespace MealsService
@@ -48,6 +49,7 @@ namespace MealsService
             services.AddScoped<IngredientsService>();
             services.AddScoped<TagsService>();
             services.AddScoped<DietTypeService>();
+            services.AddScoped<ShoppingListService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());

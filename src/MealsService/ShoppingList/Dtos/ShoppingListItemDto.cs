@@ -1,9 +1,10 @@
 ﻿
-namespace MealsService.Recipes.Dtos
+namespace MealsService.ShoppingList.Dtos
 {
-    public class RecipeIngredientDto
+    public class ShoppingListItemDto
     {
         public int Id { get; set; }
+        
         public int IngredientId { get; set; }
         public string Name { get; set; }
         public float Quantity { get; set; }
@@ -11,5 +12,8 @@ namespace MealsService.Recipes.Dtos
         public int MeasureTypeId { get; set; }
         public string Category { get; set; }
         public string Image { get; set; }
+
+        public bool ManuallyAdded { get; set; }
+        public bool Checked { get; set; }
     }
 }

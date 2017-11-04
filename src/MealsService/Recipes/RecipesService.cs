@@ -73,36 +73,37 @@ namespace MealsService.Recipes
 
         public RecipeDto GetRecipe(int id, int userId = 0)
         {
-            var recipe = _dbContext.Meals
-                .Include(m => m.MealIngredients)
-                    .ThenInclude(mi => mi.Ingredient)
-                    .ThenInclude(i => i.IngredientCategory)
-                .Include(m => m.MealDietTypes)
-                .Include(m => m.Steps)
+            return GetRecipes(new[] {id}, userId)
                 .FirstOrDefault(m => m.Id == id);
-
-            if (userId > 0)
-            {
-                _dbContext.Entry(recipe).Collection(b => b.Votes).Query().Where(v => v.UserId == userId).Load();
-            }
-
-            return ToRecipeDto(recipe);
         }
 
-        public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId)
+        public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId = 0)
+        {
+            var recipes = FindRecipes(ids, userId);
+
+            return recipes.Select(ToRecipeDto).ToList();
+        }
+
+        public List<Meal> FindRecipes(IEnumerable<int> ids, int userId = 0)
         {
             var recipes = _dbContext.Meals
                 .Include(m => m.MealIngredients)
                     .ThenInclude(mi => mi.Ingredient)
-                    .ThenInclude(i => i.IngredientCategory)
+                        .ThenInclude(i => i.IngredientCategory)
+                .Include(m => m.MealIngredients)
+                    .ThenInclude(mi => mi.MeasureType)
                 .Include(m => m.MealDietTypes)
                 .Include(m => m.Steps)
                 .Where(m => ids.Contains(m.Id))
                 .ToList();
 
-            recipes.ForEach(recipe => _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
+            if (userId > 0)
+            {
+                recipes.ForEach(recipe =>
+                    _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
+            }
 
-            return recipes.Select(ToRecipeDto).ToList();
+            return recipes;
         }
 
         public RecipeDto UpdateRecipe(int id, UpdateRecipeRequest request)
@@ -370,7 +371,8 @@ namespace MealsService.Recipes
                 Id = mealIngredient.IngredientId,
                 IngredientId = mealIngredient.IngredientId,
                 Quantity = mealIngredient.Amount,
-                Measure = mealIngredient.AmountType,
+                Measure = mealIngredient.MeasureType?.Name ?? mealIngredient.AmountType,
+                MeasureTypeId = mealIngredient.MeasureTypeId,
                 Name = mealIngredient.Ingredient.Name,
                 Image = mealIngredient.Ingredient.Image,
                 Category = mealIngredient.Ingredient.Category

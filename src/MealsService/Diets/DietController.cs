@@ -36,7 +36,7 @@ namespace MealsService.Diets
         {
             if (VerifyPermission(userId))
             {
-                var dietGoals = DietService.GetDietGoalsByUserId(userId);
+                var dietGoals = DietService.GetDietGoalsByUserId(userId, DateTime.UtcNow);
 
                 var menuPreference = DietService.GetPreferences(userId);
                 return Json(new DietDto

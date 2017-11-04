@@ -2,6 +2,7 @@
 using MealsService.Ingredients.Data;
 using MealsService.Models;
 using MealsService.Recipes.Data;
+using MealsService.ShoppingList.Data;
 using MealsService.Tags.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,6 +32,8 @@ namespace MealsService
         public DbSet<ScheduleGenerated> ScheduleGenerations { get; set; }
         public DbSet<ScheduleDay> ScheduleDays { get; set; }
         public DbSet<ScheduleSlot> ScheduleSlots { get; set; }
+
+        public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
 
         //Configurations/User Options
         public DbSet<DietGoal> DietGoals { get; set; }

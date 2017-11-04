@@ -80,13 +80,18 @@ namespace MealsService.Diets
             return success;
         }
 
-        public List<DietGoalDto> GetDietGoalsByUserId(int userId)
+        public List<DietGoalDto> GetDietGoalsByUserId(int userId, DateTime? when = null)
         {
             var dietGoals = _repository.GetDietGoals(userId);
 
             if (!dietGoals.Any())
             {
                 dietGoals.Add(_repository.DefaultDietGoal(userId));
+            }
+
+            if (when.HasValue)
+            {
+                dietGoals.ForEach(g => g.Current = GetTargetForDiet(userId, g.TargetDietId, when));
             }
 
             return dietGoals.Select(ToDto).ToList();
@@ -110,7 +115,7 @@ namespace MealsService.Diets
 
             var scaled = dietGoal.Current + (weeksPassed / changeRate);
 
-            return Math.Max(scaled, dietGoal.Target);
+            return changeRate > 0 ? Math.Min(scaled, dietGoal.Target) : Math.Max(scaled, dietGoal.Target);
         }
 
         public MenuPreferencesDto GetPreferences(int userId)
@@ -122,7 +127,7 @@ namespace MealsService.Diets
 
         protected DietGoalDto ToDto(DietGoal model)
         {
-            return new DietGoalDto
+            var dto = new DietGoalDto
             {
                 TargetDietId = model.TargetDietId,
                 Current = model.Current,
@@ -130,6 +135,8 @@ namespace MealsService.Diets
                 ReductionRate = model.ReductionRate,
                 Updated = (long)(new TimeSpan(model.Updated.Ticks)).TotalMilliseconds
             };
+
+            return dto;
         }
 
         protected MenuPreferencesDto ToDto(MenuPreference model)
