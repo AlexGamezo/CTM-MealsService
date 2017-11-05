@@ -135,6 +135,7 @@ namespace MealsService.Recipes
             recipe.PrepTime = request.PrepTime;
             recipe.Image = request.Image;
             recipe.MealType = mealType;
+            recipe.Source = request.Source;
 
             for (var i = 0; i < request.DietTypeIds.Count; i++)
             {

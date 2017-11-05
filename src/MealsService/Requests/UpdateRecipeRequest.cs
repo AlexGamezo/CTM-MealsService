@@ -18,5 +18,6 @@ namespace MealsService.Requests
         public List<int> DietTypeIds;
         public List<RecipeIngredientDto> Ingredients;
         public List<RecipeStep> Steps;
+        public string Source;
     }
 }
