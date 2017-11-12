@@ -15,10 +15,12 @@ namespace MealsService
         { }
 
         public DbSet<DietType> DietTypes { get; set; }
+        public DbSet<MeasureType> MeasureTypes { get; set; }
+
         public DbSet<Ingredient> Ingredients { get; set; }
         public DbSet<IngredientCategory> IngredientCategories { get; set; }
         public DbSet<IngredientTag> IngredientTags { get; set; }
-
+        public DbSet<IngredientMeasureType> IngredientMeasureTypes { get; set; }
 
         public DbSet<MealDietType> MealDietTypes { get; set; } 
         public DbSet<MealIngredient> MealIngredients { get; set; }

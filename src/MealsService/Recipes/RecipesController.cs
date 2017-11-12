@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
+using MealsService.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -68,20 +69,10 @@ namespace MealsService.Recipes
             return Json(new SuccessResponse());
         }
 
-        [Authorize]
+        [Authorize, AdminRequiredFilter]
         [HttpPost]
         public IActionResult Create([FromBody]UpdateRecipeRequest request)
         {
-            var claims = HttpContext.User.Claims;
-            bool isAdmin = false;
-
-            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
-            if (!isAdmin)
-            {
-                HttpContext.Response.StatusCode = 403;
-                return Json(Errors.Authorization.UnauthorizedRequest);
-            }
-
             RecipeDto createdRecipe = _recipesService.UpdateRecipe(0, request);
 
             if (createdRecipe != null)
@@ -97,40 +88,19 @@ namespace MealsService.Recipes
         }
 
 
-        [Authorize]
+        [Authorize, AdminRequiredFilter]
         [HttpPut("{id:int}")]
         public IActionResult Update(int id, [FromBody]UpdateRecipeRequest request)
         {
-            var claims = HttpContext.User.Claims;
-            bool isAdmin = false;
-
-            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
-            if (!isAdmin)
-            {
-                HttpContext.Response.StatusCode = 403;
-                return Json(Errors.Authorization.UnauthorizedRequest);
-            }
-
             var updatedRecipe = _recipesService.UpdateRecipe(id, request);
 
             return Json(new SuccessResponse<RecipeDto>(updatedRecipe));
         }
 
-        [Authorize]
+        [Authorize, AdminRequiredFilter]
         [HttpPost("{recipeId:int}/image")]
         public async Task<IActionResult> UploadImageAsync(int recipeId)
         {
-            var claims = HttpContext.User.Claims;
-            bool isAdmin = false;
-
-            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
-
-            if (!isAdmin)
-            {
-                HttpContext.Response.StatusCode = 403;
-                return Json(new ErrorResponse("Unauthorized upload request.", 403));
-            }
-
             var recipeImageFile = HttpContext.Request.Form.Files.FirstOrDefault();
             var allowedContentTypes = new List<string>()
             {
@@ -159,20 +129,10 @@ namespace MealsService.Recipes
         }
 
 
-        [Authorize]
+        [Authorize, AdminRequiredFilter]
         [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
-            var claims = HttpContext.User.Claims;
-            bool isAdmin = false;
-
-            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
-            if (!isAdmin)
-            {
-                HttpContext.Response.StatusCode = 403;
-                return Json(Errors.Authorization.UnauthorizedRequest);
-            }
-
             var success = _recipesService.Remove(id);
 
             return Json(new SuccessResponse(success));

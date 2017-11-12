@@ -49,6 +49,7 @@ namespace MealsService
             services.AddScoped<IngredientsService>();
             services.AddScoped<TagsService>();
             services.AddScoped<DietTypeService>();
+            services.AddScoped<MeasureTypesService>();
             services.AddScoped<ShoppingListService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));

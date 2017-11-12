@@ -41,6 +41,36 @@ namespace MealsService.Ingredients
             });
         }
 
+        [HttpGet]
+        [Route("{id:int}")]
+        public IActionResult GetIngredient(int id)
+        {
+            var ingredient = _ingredientsService.GetIngredient(id);
+
+            return Json(new
+            {
+                ingredient
+            });
+        }
+
+        [HttpGet]
+        [Route("{ids}")]
+        public IActionResult GetIngredients(string ids)
+        {
+            var idList = ids.Split(',').Select(id =>
+            {
+                int.TryParse(id, out var parsed);
+                return parsed;
+            }).Where(id => id > 0).ToList();
+
+            var ingredients = _ingredientsService.GetIngredients(idList);
+
+            return Json(new
+            {
+                ingredients
+            });
+        }
+
         [Authorize]
         [HttpPost]
         public IActionResult Create([FromBody] CreateIngredientRequest create)

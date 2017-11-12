@@ -20,15 +20,26 @@ namespace MealsService.Ingredients.Data
         public string Description { get; set; }
         public string Image { get; set; }
         public string Category => IngredientCategory?.Name ?? "";
+        //public bool KitchenStaple { get; set; }
 
         public List<string> Tags
         {
             get
             {
-                return IngredientTags == null
-                    ? new List<string>()
-                    : IngredientTags.Select(it => it.Tag != null ? it.Tag.Name : "")
-                        .Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+                return IngredientTags?
+                    .Select(it => it.Tag != null ? it.Tag.Name : "")
+                   .Where(t => !string.IsNullOrWhiteSpace(t))
+                   .ToList() ?? new List<string>();
+            }
+        }
+
+        public List<int> MeasureTypes
+        {
+            get
+            {
+                return IngredientMeasureTypes?
+                    .Select(it => it.MeasureTypeId )
+                    .ToList() ?? new List<int>();
             }
         }
 
@@ -40,5 +51,7 @@ namespace MealsService.Ingredients.Data
         public IngredientCategory IngredientCategory { get; set; }
         [IgnoreDataMember]
         public List<IngredientTag> IngredientTags { get; set; } = new List<IngredientTag>();
+        [IgnoreDataMember]
+        public List<IngredientMeasureType> IngredientMeasureTypes { get; set; } = new List<IngredientMeasureType>();
     }
 }

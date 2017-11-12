@@ -10,5 +10,6 @@ namespace MealsService.Requests
         public string Description;
         public string Category;
         public List<string> Tags;
+        public List<int> MeasureTypes;
     }
 }

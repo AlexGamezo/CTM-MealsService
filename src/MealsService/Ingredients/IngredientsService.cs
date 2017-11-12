@@ -25,24 +25,35 @@ namespace MealsService.Ingredients
         private IAmazonS3 _s3Client;
 
         private TagsService _tagsService;
+        private MeasureTypesService _measureTypesService;
 
-        public IngredientsService(MealsDbContext dbContext, TagsService tagsService, IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
+        public IngredientsService(MealsDbContext dbContext, TagsService tagsService, MeasureTypesService measureTypeService,
+            IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
         {
             _dbContext = dbContext;
             _tagsService = tagsService;
+            _measureTypesService = measureTypeService;
 
             _s3Client = s3Client;
             _imagesBucketName = options.Value.IngredientImagesBucket;
             _region = options.Value.Region;
         }
 
-        public Ingredient GetIngredient(int ingredient)
+        public Ingredient GetIngredient(int ingredientId)
+        {
+            return GetIngredients(new List<int> {ingredientId})
+                .FirstOrDefault();
+        }
+
+        public List<Ingredient> GetIngredients(List<int> ingredientIds)
         {
             return _dbContext.Ingredients
                 .Include(i => i.IngredientTags)
                     .ThenInclude(it => it.Tag)
+                .Include(i => i.IngredientMeasureTypes)
                 .Include(i => i.IngredientCategory)
-                .FirstOrDefault(t => t.Id == ingredient);
+                .Where(t => ingredientIds.Contains(t.Id))
+                .ToList();
         }
 
         public Ingredient Create(CreateIngredientRequest request)
@@ -64,6 +75,18 @@ namespace MealsService.Ingredients
             ingredient.IngredientTags.AddRange(request.Tags.Select(
                 tag => new IngredientTag{
                     Tag = tags.FirstOrDefault(t => t.Name == tag.ToLower()) ?? new Tag { Name = tag.ToLower() }
+                }
+            ));
+
+            if (request.MeasureTypes.Count == 0)
+            {
+                request.MeasureTypes.Add(_dbContext.MeasureTypes.First(t => t.Short == "oz").Id);
+            }
+
+            ingredient.IngredientMeasureTypes.AddRange(request.MeasureTypes.Select(
+                mt => new IngredientMeasureType
+                {
+                    MeasureTypeId = mt
                 }
             ));
 
@@ -118,6 +141,23 @@ namespace MealsService.Ingredients
                 }
             );
             ingredient.IngredientTags.AddRange(ingredientTags);
+
+            _dbContext.IngredientMeasureTypes.RemoveRange(ingredient.IngredientMeasureTypes);
+            ingredient.IngredientMeasureTypes.Clear();
+
+            if (request.MeasureTypes.Count == 0)
+            {
+                request.MeasureTypes.Add(_dbContext.MeasureTypes.First(t => t.Short == "oz").Id);
+            }
+
+            var ingredmentMeasureTypes = request.MeasureTypes.Select(
+                measureType => new IngredientMeasureType
+                {
+                    Ingredient = ingredient,
+                    MeasureTypeId = measureType
+                }
+            );
+            ingredient.IngredientMeasureTypes.AddRange(ingredmentMeasureTypes);
 
             return _dbContext.SaveChanges() > 0;
         }
@@ -184,8 +224,11 @@ namespace MealsService.Ingredients
         //TODO: Add cache layer
         public IEnumerable<Ingredient> GetIngredients(string search = "")
         {
-            IQueryable<Ingredient> ingredients = _dbContext.Ingredients.Include(i => i.IngredientCategory)
-                .Include(i => i.IngredientTags).ThenInclude(it => it.Tag);
+            IQueryable<Ingredient> ingredients = _dbContext.Ingredients
+                .Include(i => i.IngredientCategory)
+                .Include(i => i.IngredientMeasureTypes)
+                .Include(i => i.IngredientTags)
+                    .ThenInclude(it => it.Tag);
 
             if (search != "")
             {

@@ -115,6 +115,28 @@ namespace MealsService.Migrations
                     b.ToTable("IngredientCategories");
                 });
 
+            modelBuilder.Entity("MealsService.Ingredients.Data.IngredientMeasureType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("IngredientId");
+
+                    b.Property<int?>("IngredientId1");
+
+                    b.Property<string>("MeasureTypeId");
+
+                    b.Property<int?>("MeasureTypeId1");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IngredientId1");
+
+                    b.HasIndex("MeasureTypeId1");
+
+                    b.ToTable("IngredientMeasureTypes");
+                });
+
             modelBuilder.Entity("MealsService.Ingredients.Data.IngredientTag", b =>
                 {
                     b.Property<int>("Id")
@@ -144,7 +166,7 @@ namespace MealsService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MeasureType");
+                    b.ToTable("MeasureTypes");
                 });
 
             modelBuilder.Entity("MealsService.Models.ScheduleDay", b =>
@@ -399,6 +421,17 @@ namespace MealsService.Migrations
                     b.HasOne("MealsService.Ingredients.Data.IngredientCategory", "IngredientCategory")
                         .WithMany()
                         .HasForeignKey("CategoryId");
+                });
+
+            modelBuilder.Entity("MealsService.Ingredients.Data.IngredientMeasureType", b =>
+                {
+                    b.HasOne("MealsService.Ingredients.Data.Ingredient", "Ingredient")
+                        .WithMany("IngredientMeasureTypes")
+                        .HasForeignKey("IngredientId1");
+
+                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
+                        .WithMany()
+                        .HasForeignKey("MeasureTypeId1");
                 });
 
             modelBuilder.Entity("MealsService.Ingredients.Data.IngredientTag", b =>
