@@ -14,7 +14,7 @@ using MealsService.Recipes.Dtos;
 namespace MealsService.Recipes
 {
     [Route("[controller]")]
-    public class RecipesController : Controller
+    public class RecipesController : AuthorizedController
     {
         private RecipesService _recipesService;
 

@@ -185,6 +185,11 @@ namespace MealsService.Recipes
                         recipe.MealIngredients[i].AmountType = request.Ingredients[i].Measure;
                         changes = true;
                     }
+                    if (recipe.MealIngredients[i].MeasureTypeId != request.Ingredients[i].MeasureTypeId)
+                    {
+                        recipe.MealIngredients[i].MeasureTypeId = request.Ingredients[i].MeasureTypeId;
+                        changes = true;
+                    }
                 }
                 else
                 {
@@ -198,6 +203,7 @@ namespace MealsService.Recipes
                         IngredientId = request.Ingredients[i].IngredientId,
                         Amount = request.Ingredients[i].Quantity,
                         AmountType = request.Ingredients[i].Measure,
+                        MeasureTypeId = request.Ingredients[i].MeasureTypeId
                     });
                 }
             }
