@@ -133,6 +133,7 @@ namespace MealsService.Recipes
             recipe.Description = request.Description;
             recipe.CookTime = request.CookTime;
             recipe.PrepTime = request.PrepTime;
+            recipe.NumServings = request.NumServings;
             recipe.Image = request.Image;
             recipe.MealType = mealType;
             recipe.Source = request.Source;
@@ -353,6 +354,7 @@ namespace MealsService.Recipes
                 Image = meal.Image,
                 CookTime = meal.CookTime,
                 PrepTime = meal.PrepTime,
+                NumServings = meal.NumServings,
                 MealType = meal.MealType.ToString(),
                 Source = meal.Source,
                 Ingredients = meal.MealIngredients?.Select(ToRecipeIngredientDto)

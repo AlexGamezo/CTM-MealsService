@@ -23,6 +23,7 @@ namespace MealsService.Recipes.Data
         public Type MealType { get; set; }
         public int PrepTime { get; set; }
         public int CookTime { get; set; }
+        public int NumServings { get; set; }
 
         [Column(TypeName = "varchar(200)")]
         public string Source { get; set; }

@@ -13,6 +13,7 @@ namespace MealsService.Requests
         public string Description;
         public int CookTime;
         public int PrepTime;
+        public int NumServings;
         public string Image;
         public string MealType;
         public List<int> DietTypeIds;

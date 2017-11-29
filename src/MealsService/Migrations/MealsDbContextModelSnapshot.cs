@@ -120,19 +120,15 @@ namespace MealsService.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("IngredientId");
+                    b.Property<int>("IngredientId");
 
-                    b.Property<int?>("IngredientId1");
-
-                    b.Property<string>("MeasureTypeId");
-
-                    b.Property<int?>("MeasureTypeId1");
+                    b.Property<int>("MeasureTypeId");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IngredientId1");
+                    b.HasIndex("IngredientId");
 
-                    b.HasIndex("MeasureTypeId1");
+                    b.HasIndex("MeasureTypeId");
 
                     b.ToTable("IngredientMeasureTypes");
                 });
@@ -248,6 +244,8 @@ namespace MealsService.Migrations
                     b.Property<int>("MealType");
 
                     b.Property<string>("Name");
+
+                    b.Property<int>("NumServings");
 
                     b.Property<int>("PrepTime");
 
@@ -427,11 +425,13 @@ namespace MealsService.Migrations
                 {
                     b.HasOne("MealsService.Ingredients.Data.Ingredient", "Ingredient")
                         .WithMany("IngredientMeasureTypes")
-                        .HasForeignKey("IngredientId1");
+                        .HasForeignKey("IngredientId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
                         .WithMany()
-                        .HasForeignKey("MeasureTypeId1");
+                        .HasForeignKey("MeasureTypeId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("MealsService.Ingredients.Data.IngredientTag", b =>

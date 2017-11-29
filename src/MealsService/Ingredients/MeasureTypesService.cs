@@ -32,7 +32,7 @@ namespace MealsService.Ingredients
 
         public bool Update(MeasureType type)
         {
-            _dbContext.MeasureTypes.Add(type);
+            _dbContext.MeasureTypes.Update(type);
 
             return _dbContext.Entry(type).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
         }

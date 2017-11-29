@@ -17,6 +17,7 @@ namespace MealsService.Recipes.Dtos
 
         public int PrepTime { get; set; }
         public int CookTime { get; set; }
+        public int NumServings { get; set; }
 
         public string MealType { get; set; }
 
