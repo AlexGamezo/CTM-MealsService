@@ -89,7 +89,7 @@ namespace MealsService.ShoppingList
                         UserId = userId,
                         IngredientId = group.Key,
                         MeasureTypeId = measureGroup.Key,
-                        Amount = measureGroup.Sum(mi => mi.Amount) * measureGroup.Count(),
+                        Amount = measureGroup.Sum(mi => mi.Amount),
                         IngredientName = measureGroup.First().Ingredient.Name,
                         ScheduleSlots = measureGroup.SelectMany(mi =>
                         {
@@ -177,7 +177,7 @@ namespace MealsService.ShoppingList
                 IngredientId = item.IngredientId,
                 MeasureTypeId = item.MeasureTypeId,
 
-                Name = item.IngredientName,
+                Name = item.IngredientId > 0 && item.Ingredient != null ? item.Ingredient.Name : item.IngredientName,
                 Quantity = item.Amount,
 
                 Category = item.Ingredient.Category,

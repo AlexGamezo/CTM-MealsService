@@ -74,13 +74,22 @@ namespace MealsService.Services
                 MealType = slot.Type,
             };
 
+            var myVotes = _dbContext.RecipeVotes
+                .Where(v => v.UserId == userId)
+                .Select(v => v.RecipeId)
+                .ToList();
+
             var recipeWeights = new Dictionary<int, int>
             {
                 {slot.MealId, 1}
             };
 
+            foreach (var vote in myVotes)
+            {
+                recipeWeights.Add(vote, 100);
+            }
+            
             //TODO: preference recipes not present this week
-            //TODO: exclude recipes voted against
             //TODO: Pull meal preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
             var recipe = GetRandomMeal(randomRecipeRequest, recipeWeights);
 
@@ -125,8 +134,18 @@ namespace MealsService.Services
             
             _dbContext.SaveChanges();
 
-            //TODO: Take into account likes/dislikes and schedule for days/weeks before and after this timeframe
+            //TODO: Take into account schedule for days/weeks before and after this timeframe
+            var myVotes = _dbContext.RecipeVotes
+                .Where(v => v.UserId == userId)
+                .Select(v => v.RecipeId)
+                .ToList();
+
             var usedRecipeCounts = new Dictionary<int, int>();
+            foreach (var vote in myVotes)
+            {
+                usedRecipeCounts.Add(vote, 100);
+            }
+
             var randomRecipeRequest = new RandomRecipeRequest
             {
                 ExcludeTags = request.ExcludeTags,

@@ -11,5 +11,7 @@ namespace MealsService.Ingredients.Data
         
         [StringLength(32)]
         public string Name { get; set; }
+        
+        public int Order { get; set; }
     }
 }

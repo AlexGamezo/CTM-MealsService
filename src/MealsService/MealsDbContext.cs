@@ -44,5 +44,20 @@ namespace MealsService
         #endregion
 
         public DbSet<Tag> Tags { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DietGoal>()
+                .HasIndex(g => g.UserId);
+            modelBuilder.Entity<ScheduleDay>()
+                .HasIndex(d => d.UserId);
+            modelBuilder.Entity<ScheduleGenerated>()
+                .HasIndex(g => g.UserId);
+            modelBuilder.Entity<ShoppingListItem>()
+                .HasIndex(i => new {i.UserId, i.WeekStart});
+
+            modelBuilder.Entity<RecipeVote>()
+                .HasIndex(v => v.UserId);
+        }
     }
 }

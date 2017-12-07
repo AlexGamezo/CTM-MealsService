@@ -42,6 +42,8 @@ namespace MealsService.Migrations
 
                     b.HasIndex("TargetDietId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("DietGoals");
                 });
 
@@ -109,6 +111,8 @@ namespace MealsService.Migrations
 
                     b.Property<string>("Name")
                         .HasMaxLength(32);
+
+                    b.Property<int>("Order");
 
                     b.HasKey("Id");
 
@@ -184,6 +188,8 @@ namespace MealsService.Migrations
 
                     b.HasIndex("DietTypeId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("ScheduleDays");
                 });
 
@@ -204,6 +210,8 @@ namespace MealsService.Migrations
                     b.Property<int>("UserId");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("ScheduleGenerations");
                 });
@@ -334,6 +342,8 @@ namespace MealsService.Migrations
 
                     b.HasIndex("RecipeId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("RecipeVotes");
                 });
 
@@ -364,6 +374,8 @@ namespace MealsService.Migrations
                     b.HasIndex("IngredientId");
 
                     b.HasIndex("MeasureTypeId");
+
+                    b.HasIndex("UserId", "WeekStart");
 
                     b.ToTable("ShoppingListItems");
                 });
