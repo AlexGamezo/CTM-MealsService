@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.Serialization;
 
 using MealsService.Recipes.Data;
+using MealsService.Schedules.Data;
 
 namespace MealsService.Models
 {
@@ -26,5 +27,6 @@ namespace MealsService.Models
         [IgnoreDataMember]
         public ScheduleDay ScheduleDay { get; set; }
         public Meal Meal { get; set; }
+        public ScheduleSlotConfirmation ScheduleSlotConfirmation { get; set; }
     }
 }

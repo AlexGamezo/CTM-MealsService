@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.IdentityModel.Tokens.Jwt;
+using MealsService.Common;
 using Microsoft.AspNetCore.Authorization;
 
 using MealsService.Responses;
@@ -9,11 +10,12 @@ using MealsService.Services;
 using MealsService.Recipes;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
+using MealsService.Schedules.Dtos;
 
 namespace MealsService.Controllers
 {
     [Route("[controller]")]
-    public class ScheduleController : Controller
+    public class ScheduleController : AuthorizedController
     {
         private ScheduleService _scheduleService { get; }
         private RecipesService _recipesService { get; }
@@ -29,12 +31,7 @@ namespace MealsService.Controllers
         [Route("me/{dateString:datetime}"), HttpGet]
         public IActionResult Get(string dateString = "")
         {
-            var claims = HttpContext.User.Claims;
-            int id = 0;
-
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);
-
-            return Get(id, dateString);
+            return Get(AuthorizedUser, dateString);
         }
 
         [Route("{userId:int}"), HttpGet]
@@ -85,12 +82,7 @@ namespace MealsService.Controllers
         [Route("me/{slotId:int}"), HttpPost]
         public IActionResult RegenerateSlot(int slotId) 
         {
-            var claims = HttpContext.User.Claims;
-            int id;
-
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);
-
-            var newSlot = _scheduleService.RegenerateSlot(id, slotId);
+            var newSlot = _scheduleService.RegenerateSlot(AuthorizedUser, slotId);
 
             if (newSlot != null)
             {
@@ -107,12 +99,7 @@ namespace MealsService.Controllers
         [Route("me/{dateString:datetime}"), HttpPost]
         public IActionResult GenerateSchedule([FromBody]GenerateScheduleRequest request, string dateString = "")
         {
-            var claims = HttpContext.User.Claims;
-            int id;
-
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out id);
-
-            return GenerateSchedule(request, id, dateString);
+            return GenerateSchedule(request, AuthorizedUser, dateString);
         }
 
         [Route("{userId:int}"), HttpPost]
@@ -150,6 +137,20 @@ namespace MealsService.Controllers
             _scheduleService.GenerateSchedule(userId, date, date.AddDays(6), request);
 
             return Get(dateString);
+        }
+
+        [Route("{userId:int}/confirmations/{slotId:int}"), HttpPost]
+        [Route("me/confirmations/{slotId:int}"), HttpPost]
+        public IActionResult ConfirmDay([FromBody] ConfirmDayRequest request, int userId = 0, int slotId = 0)
+        {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+
+            var success = _scheduleService.ConfirmDay(userId, slotId, request.Confirmation);
+
+            return Json(new SuccessResponse(success));
         }
     }
 }

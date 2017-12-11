@@ -10,6 +10,8 @@ using MealsService.Models;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
+using MealsService.Schedules.Data;
+using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
 
 namespace MealsService.Services
@@ -42,6 +44,7 @@ namespace MealsService.Services
             
             var schedule = _dbContext.ScheduleDays.Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)
                 .Include(d => d.ScheduleSlots)
+                    .ThenInclude(s => s.ScheduleSlotConfirmation)
                 .OrderBy(d => d.Date)
                 .ToList();
 
@@ -201,6 +204,36 @@ namespace MealsService.Services
             _dbContext.SaveChanges();
         }
 
+        public bool ConfirmDay(int userId, int scheduleSlotId, ConfirmStatus confirm)
+        {
+            var confirmation = _dbContext.ScheduleSlotConfirmations.FirstOrDefault(c =>
+                c.UserId == userId && c.ScheduleSlotId == scheduleSlotId);
+
+            if (confirmation == null)
+            {
+                var slot = _dbContext.ScheduleSlots.Include(s => s.ScheduleDay)
+                    .FirstOrDefault(s => s.Id == scheduleSlotId);
+
+                if (slot == null || slot.ScheduleDay.UserId != userId)
+                {
+                    //TODO: Throw an appropriate error to be sent to user
+                    return false;
+                }
+
+                confirmation = new ScheduleSlotConfirmation
+                {
+                    ScheduleSlotId = scheduleSlotId,
+                    UserId = userId
+                };
+
+                _dbContext.ScheduleSlotConfirmations.Add(confirmation);
+            }
+
+            confirmation.Confirm = confirm;
+            return _dbContext.Entry(confirmation).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+        }
+
+
         public ScheduleDayDto ToScheduleDayDto(ScheduleDay day)
         {
             return new ScheduleDayDto
@@ -219,7 +252,8 @@ namespace MealsService.Services
             {
                 Id = slot.Id,
                 MealType = slot.Type.ToString(),
-                RecipeId = slot.MealId
+                RecipeId = slot.MealId,
+                Confirmed = slot.ScheduleSlotConfirmation?.Confirm ?? ConfirmStatus.UNSET
             };
         }
 

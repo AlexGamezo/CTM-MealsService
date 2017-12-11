@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using MealsService;
 using MealsService.Diets.Data;
 using MealsService.Recipes.Data;
+using MealsService.Schedules.Dtos;
 
 namespace MealsService.Migrations
 {
@@ -347,6 +348,27 @@ namespace MealsService.Migrations
                     b.ToTable("RecipeVotes");
                 });
 
+            modelBuilder.Entity("MealsService.Schedules.Data.ScheduleSlotConfirmation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("Confirm");
+
+                    b.Property<int>("ScheduleSlotId");
+
+                    b.Property<int>("UserId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleSlotId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ScheduleSlotId");
+
+                    b.ToTable("ScheduleSlotConfirmations");
+                });
+
             modelBuilder.Entity("MealsService.ShoppingList.Data.ShoppingListItem", b =>
                 {
                     b.Property<int>("Id")
@@ -524,6 +546,14 @@ namespace MealsService.Migrations
                     b.HasOne("MealsService.Recipes.Data.Meal")
                         .WithMany("Votes")
                         .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("MealsService.Schedules.Data.ScheduleSlotConfirmation", b =>
+                {
+                    b.HasOne("MealsService.Models.ScheduleSlot", "ScheduleSlot")
+                        .WithOne("ScheduleSlotConfirmation")
+                        .HasForeignKey("MealsService.Schedules.Data.ScheduleSlotConfirmation", "ScheduleSlotId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

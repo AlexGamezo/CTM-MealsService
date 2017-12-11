@@ -1,10 +1,12 @@
-﻿using MealsService.Diets.Data;
+﻿using Microsoft.EntityFrameworkCore;
+
+using MealsService.Diets.Data;
 using MealsService.Ingredients.Data;
 using MealsService.Models;
 using MealsService.Recipes.Data;
+using MealsService.Schedules.Data;
 using MealsService.ShoppingList.Data;
 using MealsService.Tags.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace MealsService
 {
@@ -35,6 +37,8 @@ namespace MealsService
         public DbSet<ScheduleDay> ScheduleDays { get; set; }
         public DbSet<ScheduleSlot> ScheduleSlots { get; set; }
 
+        public DbSet<ScheduleSlotConfirmation> ScheduleSlotConfirmations { get; set; }
+
         public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
 
         //Configurations/User Options
@@ -53,6 +57,9 @@ namespace MealsService
                 .HasIndex(d => d.UserId);
             modelBuilder.Entity<ScheduleGenerated>()
                 .HasIndex(g => g.UserId);
+            modelBuilder.Entity<ScheduleSlotConfirmation>()
+                .HasIndex(c => new {c.UserId, c.ScheduleSlotId} );
+
             modelBuilder.Entity<ShoppingListItem>()
                 .HasIndex(i => new {i.UserId, i.WeekStart});
 
