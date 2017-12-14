@@ -65,6 +65,9 @@ namespace MealsService
 
             modelBuilder.Entity<RecipeVote>()
                 .HasIndex(v => v.UserId);
+
+            modelBuilder.Entity<Meal>()
+                .HasIndex(v => v.Slug);
         }
     }
 }

@@ -16,11 +16,17 @@ namespace MealsService.Recipes.Data
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
+
         public string Name { get; set; }
+        public string Slug { get; set; }
+
         public string Brief { get; set; }
-        public string Image { get; set; }
         public string Description { get; set; }
+
+        public string Image { get; set; }
+
         public Type MealType { get; set; }
+
         public int PrepTime { get; set; }
         public int CookTime { get; set; }
         public int NumServings { get; set; }

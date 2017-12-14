@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -77,6 +78,34 @@ namespace MealsService.Recipes
                 .FirstOrDefault(m => m.Id == id);
         }
 
+        public RecipeDto GetBySlug(string slug, int userId = 0)
+        {
+            return FindRecipesBySlug(new[] {slug}, userId)
+                .Select(ToRecipeDto).FirstOrDefault();
+        }
+
+        public List<Meal> FindRecipesBySlug(IEnumerable<string> slugs, int userId = 0)
+        {
+            var recipes = _dbContext.Meals
+                .Include(m => m.MealIngredients)
+                .ThenInclude(mi => mi.Ingredient)
+                .ThenInclude(i => i.IngredientCategory)
+                .Include(m => m.MealIngredients)
+                .ThenInclude(mi => mi.MeasureType)
+                .Include(m => m.MealDietTypes)
+                .Include(m => m.Steps)
+                .Where(m => slugs.Contains(m.Slug))
+                .ToList();
+
+            if (userId > 0)
+            {
+                recipes.ForEach(recipe =>
+                    _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
+            }
+
+            return recipes;
+        }
+
         public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId = 0)
         {
             var recipes = FindRecipes(ids, userId);
@@ -129,6 +158,21 @@ namespace MealsService.Recipes
             }
 
             recipe.Name = request.Name;
+
+            if (!string.IsNullOrEmpty(request.Slug))
+            {
+                recipe.Slug = request.Slug;
+            }
+            else if(string.IsNullOrEmpty(recipe.Slug))
+            {
+                recipe.Slug = GenerateSlug(request.Name, id);
+
+                if (recipe.Slug == null)
+                {
+                    //TODO: Throw appropriate exception to be shown
+                }
+            }
+
             recipe.Brief = request.Brief;
             recipe.Description = request.Description;
             recipe.CookTime = request.CookTime;
@@ -322,6 +366,32 @@ namespace MealsService.Recipes
         private string GetRecipeImageUrl(string filename)
         {
             return $"https://s3-{_region}.amazonaws.com/{_recipeImagesBucketName}/{filename}";
+        }
+
+        private string GenerateSlug(string name, int id)
+        {
+            var regex = new Regex("[^A-Za-z0-9]+");
+            var baseSlug = regex.Replace(name.ToLower(), "-");
+
+            for (var i = 0; i < 10; i++)
+            {
+                string testSlug;
+                if (i == 0)
+                {
+                    testSlug = baseSlug;
+                }
+                else
+                {
+                    testSlug = $"baseSlug-{i}";
+                }
+
+                if (_dbContext.Meals.Any(m => m.Slug == testSlug && id != m.Id))
+                {
+                    return testSlug;
+                }
+            }
+
+            return null;
         }
 
         public bool Remove(int id)

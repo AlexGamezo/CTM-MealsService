@@ -258,10 +258,14 @@ namespace MealsService.Migrations
 
                     b.Property<int>("PrepTime");
 
+                    b.Property<string>("Slug");
+
                     b.Property<string>("Source")
                         .HasColumnType("varchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Slug");
 
                     b.ToTable("Meals");
                 });

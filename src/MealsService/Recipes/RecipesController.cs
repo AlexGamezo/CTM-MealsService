@@ -37,12 +37,7 @@ namespace MealsService.Recipes
         [HttpGet("{id:int}")]
         public IActionResult Get(int id)
         {
-            var claims = HttpContext.User.Claims;
-            int userId = 0;
-
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out userId);
-
-            var recipe = _recipesService.GetRecipe(id, userId);
+            var recipe = _recipesService.GetRecipe(id, AuthorizedUser);
 
             if(recipe != null)
             {
@@ -55,8 +50,24 @@ namespace MealsService.Recipes
             }
         }
 
+        [HttpGet("{slug:regex(^[[A-Za-z0-9\\-]]+$)}")]
+        public IActionResult Get(string slug)
+        {
+            var recipe = _recipesService.GetBySlug(slug, AuthorizedUser);
+
+            if (recipe != null)
+            {
+                return Json(new SuccessResponse<RecipeDto>(recipe));
+            }
+            else
+            {
+                Response.StatusCode = 404;
+                return Json(new ErrorResponse("Could not find the recipe", 404));
+            }
+        }
+
         [Authorize]
-        [HttpPost("votes/{id:int}")]
+        [HttpPost("{id:int}/votes")]
         public IActionResult Vote(int id, [FromBody] RecipeVoteDto request)
         {
             var claims = HttpContext.User.Claims;
