@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 
 using MealsService.Recipes.Data;
 using MealsService.Diets;
-using MealsService.Recipes;
 using MealsService.Models;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
@@ -122,7 +121,7 @@ namespace MealsService.Services
             
             //TODO: support multiple diet goals
             var dietGoal = _dietService.GetDietGoalsByUserId(userId).FirstOrDefault();
-            var daysForDiet = Math.Max(7 - _dietService.GetTargetForDiet(userId, dietGoal.TargetDietId), 1);
+            var daysForDiet = Math.Min(_dietService.GetTargetForDiet(userId, dietGoal.TargetDietId), 1);
             var currentDay = new DateTime(start.Ticks, DateTimeKind.Utc);
             
             ClearSchedule(userId, start, end);
