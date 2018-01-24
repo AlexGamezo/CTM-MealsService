@@ -17,6 +17,7 @@ using MealsService.Diets;
 using MealsService.Ingredients;
 using MealsService.ShoppingList;
 using MealsService.Tags;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace MealsService
 {
@@ -56,6 +57,27 @@ namespace MealsService
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
             services.AddAWSService<IAmazonS3>();
 
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    // secretKey contains a secret passphrase only your server knows
+                    var secretKey = Configuration.GetValue<string>("Authentication:AccessTokenKey");
+                    var signingKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey));
+
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = signingKey,
+                        ValidateIssuer = true,
+                        ValidIssuer = Configuration.GetValue<string>("Authentication:Issuer"),
+                        ValidateAudience = true,
+                        ValidAudience = Configuration.GetValue<string>("Authentication:Audience"),
+                        ValidateLifetime = true,
+                        NameClaimType = JwtRegisteredClaimNames.Sub,
+                        RoleClaimType = "role"
+                    };
+                });
+
             services.AddCors();
         }
 
@@ -67,10 +89,7 @@ namespace MealsService
 
             app.UseDeveloperExceptionPage();
 
-            // secretKey contains a secret passphrase only your server knows
-            var secretKey = Configuration.GetValue<string>("Authentication:AccessTokenKey");
-            var signingKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey));
-
+            
             app.UseCors(builder =>
             {
                 builder.WithOrigins("http://localhost:63516", "http://localhost:63517")
@@ -79,29 +98,10 @@ namespace MealsService
                     ;
             });
 
-            var tokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = signingKey,
-                ValidateIssuer = true,
-                ValidIssuer = Configuration.GetValue<string>("Authentication:Issuer"),
-                ValidateAudience = true,
-                ValidAudience = Configuration.GetValue<string>("Authentication:Audience"),
-                ValidateLifetime = true,
-                NameClaimType = "sub",
-                RoleClaimType = "role"
-            };
-
+            app.UseAuthentication();
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
-            app.UseJwtBearerAuthentication(new JwtBearerOptions
-            {
-                AutomaticAuthenticate = true,
-                AutomaticChallenge = true,
-                TokenValidationParameters = tokenValidationParameters
-            });
 
             app.UseStaticFiles();
-
             app.UseMvc();
         }
     }
