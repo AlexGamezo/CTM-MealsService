@@ -6,7 +6,6 @@
     <AssemblyName>MealsService</AssemblyName>
     <OutputType>Exe</OutputType>
     <PackageId>MealsService</PackageId>
-    <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
   </PropertyGroup>
 
   <ItemGroup>
