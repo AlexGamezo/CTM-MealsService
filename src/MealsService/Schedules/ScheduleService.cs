@@ -121,7 +121,7 @@ namespace MealsService.Services
             
             //TODO: support multiple diet goals
             var dietGoal = _dietService.GetDietGoalsByUserId(userId).FirstOrDefault();
-            var daysForDiet = Math.Min(_dietService.GetTargetForDiet(userId, dietGoal.TargetDietId), 1);
+            var daysForDiet = _dietService.GetTargetForDiet(userId, dietGoal.TargetDietId);
             var currentDay = new DateTime(start.Ticks, DateTimeKind.Utc);
             
             ClearSchedule(userId, start, end);
