@@ -434,7 +434,8 @@ namespace MealsService.Recipes
                             .OrderBy(s => s.Order)
                             .ToList(),
                 DietTypes = meal.MealDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),
-                Vote = meal.Votes != null && meal.Votes.Any() ? meal.Votes.First().Vote : RecipeVote.VoteType.UNKNOWN
+                Vote = meal.Votes != null && meal.Votes.Any() ? meal.Votes.First().Vote : RecipeVote.VoteType.UNKNOWN,
+                Slug = meal.Slug
             };
         }
 

@@ -12,6 +12,7 @@ namespace MealsService.Recipes.Dtos
         public string Name { get; set; }
         public string Description { get; set; }
         public string Brief { get; set; }
+        public string Slug { get; set; }
 
         public string Image { get; set; }
 
