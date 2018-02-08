@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Linq;
-using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using MealsService.Common;
 using Microsoft.AspNetCore.Authorization;
 
@@ -9,7 +9,6 @@ using MealsService.Responses;
 using MealsService.Services;
 using MealsService.Recipes;
 using MealsService.Requests;
-using MealsService.Responses.Schedules;
 using MealsService.Schedules.Dtos;
 
 namespace MealsService.Controllers
@@ -25,45 +24,22 @@ namespace MealsService.Controllers
             _scheduleService = scheduleService;
             _recipesService = recipesService;
         }
-
+        
         [Authorize]
         [Route("me"), HttpGet]
-        [Route("me/{dateString:datetime}"), HttpGet]
-        public IActionResult Get(string dateString = "")
-        {
-            return Get(AuthorizedUser, dateString);
-        }
-
         [Route("{userId:int}"), HttpGet]
+        [Route("me/{dateString:datetime}"), HttpGet]
         [Route("{userId:int}/{dateString:datetime}"), HttpGet]
         public IActionResult Get(int userId, string dateString = "")
         {
-            DateTime date;
-            if (dateString == "")
+            if (userId == 0)
             {
-                date = DateTime.Now.Date;
+                userId = AuthorizedUser;
             }
-            else
-            {
-                var dateParts = dateString.Split('-');
-                if (dateParts.Length != 3)
-                {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
-                }
 
-                int year, month, day;
-                if (!int.TryParse(dateParts[0], out year)
-                    || !int.TryParse(dateParts[1], out month)
-                    || !int.TryParse(dateParts[2], out day))
-                {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
-                }
-                date = new DateTime(year, month, day);
-            }
-            
-            var days = (int) date.DayOfWeek - 1;
-            if (days < 0) days += 7;
-            var weekBeginning = date.Subtract(new TimeSpan(days, 0, 0, 0));
+            DateTime date = dateString == "" ? _scheduleService.GetWeekStart(DateTime.UtcNow) : DateTime.Parse(dateString);
+
+            var weekBeginning = _scheduleService.GetWeekStart(date);
 
             var scheduleDays = _scheduleService.GetSchedule(userId, weekBeginning)
                 .Select(_scheduleService.ToScheduleDayDto)
@@ -79,7 +55,8 @@ namespace MealsService.Controllers
             }));
         }
 
-        [Route("me/{slotId:int}"), HttpPost]
+        [Authorize]
+        [Route("me/slots/{slotId:int}/recycles"), HttpPost]
         public IActionResult RegenerateSlot(int slotId) 
         {
             var newSlot = _scheduleService.RegenerateSlot(AuthorizedUser, slotId);
@@ -94,63 +71,86 @@ namespace MealsService.Controllers
 
             return Json(new ErrorResponse("Could not regenerate slot", 500));
         }
-
-        [Route("me"), HttpPost]
-        [Route("me/{dateString:datetime}"), HttpPost]
-        public IActionResult GenerateSchedule([FromBody]GenerateScheduleRequest request, string dateString = "")
-        {
-            return GenerateSchedule(request, AuthorizedUser, dateString);
-        }
-
-        [Route("{userId:int}"), HttpPost]
-        [Route("{userId:int}/{dateString:datetime}"), HttpPost]
-        public IActionResult GenerateSchedule([FromBody]GenerateScheduleRequest request, int userId, string dateString = "")
-        {
-            DateTime date;
-            if (dateString == "")
-            {
-                date = DateTime.UtcNow.Date;
-
-                var days = (int)date.DayOfWeek - 1;
-                if (days < 0) days += 7;
-                //date should be beginning of the week
-                date = date.Subtract(new TimeSpan(days, 0, 0, 0));
-            }
-            else
-            {
-                var dateParts = dateString.Split('-');
-                if (dateParts.Length != 3)
-                {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
-                }
-
-                int year, month, day;
-                if (!int.TryParse(dateParts[0], out year)
-                    || !int.TryParse(dateParts[1], out month)
-                    || !int.TryParse(dateParts[2], out day))
-                {
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", 400));
-                }
-                date = new DateTime(year, month, day);
-            }
-
-            _scheduleService.GenerateSchedule(userId, date, date.AddDays(6), request);
-
-            return Get(dateString);
-        }
-
-        [Route("{userId:int}/confirmations/{slotId:int}"), HttpPost]
-        [Route("me/confirmations/{slotId:int}"), HttpPost]
-        public IActionResult ConfirmDay([FromBody] ConfirmDayRequest request, int userId = 0, int slotId = 0)
+        
+        [Authorize]
+        [Route("me/slots/{slotId:int}"), HttpPatch]
+        [Route("{userId:int}/slots/{slotId:int}"), HttpPatch]
+        public IActionResult UpdateSlot(int userId, int slotId, [FromBody]ScheduleSlotPatchRequest request)
         {
             if (userId == 0)
             {
                 userId = AuthorizedUser;
             }
 
-            var success = _scheduleService.ConfirmDay(userId, slotId, request.Confirmation);
+            var success = false;
 
-            return Json(new SuccessResponse(success));
+            if (request.Op == ScheduleSlotPatchRequest.Operation.MoveSlot)
+            {
+                success = _scheduleService.MoveSlot(userId, slotId, request.ScheduleDayId);
+            }
+            else if (request.Op == ScheduleSlotPatchRequest.Operation.UpdateConfirmState)
+            {
+                success = _scheduleService.ConfirmDay(userId, slotId, request.Confirm);
+            }
+
+            if (!success)
+            {
+                Response.StatusCode = (int) HttpStatusCode.InternalServerError;
+                return Json(new ErrorResponse("Failed to update slot", 500));
+            }
+
+            return Json(new SuccessResponse());
+        }
+
+        [Authorize]
+        [Route("me/{dateString:datetime}"), HttpPatch]
+        [Route("{userId:int}/{dateString:datetime}"), HttpPatch]
+        public IActionResult UpdateDay(int userId, string dateString, [FromBody] ScheduleDayPatchRequest request)
+        {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+
+            var success = false;
+
+            if (request.Op == ScheduleDayPatchRequest.Operation.AcceptChallenge)
+            {
+                var day = _scheduleService.AddChallengeDay(userId, DateTime.Parse(dateString));
+
+                return Json(new SuccessResponse<object>(
+                    new
+                    {
+                        scheduledDay = day
+                    }));
+            }
+
+            Response.StatusCode = (int) HttpStatusCode.BadRequest;
+            return Json(new ErrorResponse("Bad request", 400));
+        }
+
+        [Authorize]
+        [Route("me"), HttpPost]
+        [Route("{userId:int}"), HttpPost]
+        [Route("me/{dateString:datetime}"), HttpPost]
+        [Route("{userId:int}/{dateString:datetime}"), HttpPost]
+        public IActionResult GenerateSchedule([FromBody]GenerateScheduleRequest request, int userId, string dateString = "")
+        {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+
+            DateTime date = dateString == "" ? _scheduleService.GetWeekStart(DateTime.UtcNow) : DateTime.Parse(dateString);
+
+            var end = date.AddDays(6);
+
+            if (end > DateTime.UtcNow)
+            {
+                _scheduleService.GenerateSchedule(userId, date, end, request);
+            }
+
+            return Get(userId, dateString);
         }
     }
 }

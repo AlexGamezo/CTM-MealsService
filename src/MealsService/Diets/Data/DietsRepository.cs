@@ -38,6 +38,38 @@ namespace MealsService.Diets.Data
             return _context.DietGoals.Where(g => g.UserId == userId).ToList();
         }
 
+        public List<ChangeDay> GetChangeDays(int userId, int targetDays)
+        {
+            return _context.ChangeDays.Where(d => d.UserId == userId && d.TargetDays == targetDays).ToList();
+        }
+
+        public bool SetChangeDays(int userId, int targetDays, List<int> changeDaysOfWeek)
+        {
+            var changeDays = GetChangeDays(userId, targetDays);
+            var changes = false;
+
+            for (var i = 0; i < changeDaysOfWeek.Count; i++)
+            {
+                if (changeDays.Count < i + 1)
+                {
+                    _context.Add(new ChangeDay
+                    {
+                        UserId = userId,
+                        TargetDays = targetDays,
+                        DayOfWeek = changeDaysOfWeek[i]
+                    });
+                    changes = true;
+                }
+                else
+                {
+                    changes = changes || changeDays[i].DayOfWeek != changeDaysOfWeek[i];
+                    changeDays[i].DayOfWeek = changeDaysOfWeek[i];
+                }
+            }
+
+            return !changes || _context.SaveChanges() > 0;
+        }
+
         public bool AddDietGoal(int userId, DietGoal goal)
         {
             var goals = GetDietGoals(userId);

@@ -9,8 +9,6 @@ using MealsService.Models;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
-using MealsService.Schedules.Data;
-using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
 
 namespace MealsService.Services
@@ -34,6 +32,21 @@ namespace MealsService.Services
             _rand = new Random();
         }
 
+        public DateTime GetWeekStart(DateTime? when = null)
+        {
+            if (!when.HasValue)
+            {
+                when = DateTime.UtcNow;
+            }
+
+            when = when.Value.Date;
+
+            var days = (int)when.Value.DayOfWeek - 1;
+            if (days < 0) days += 7;
+
+            return when.Value.Subtract(new TimeSpan(days, 0, 0, 0));
+        }
+
         public List<ScheduleDay> GetSchedule(int userId, DateTime start, DateTime? end = null)
         {
             if (!end.HasValue)
@@ -43,18 +56,79 @@ namespace MealsService.Services
             
             var schedule = _dbContext.ScheduleDays.Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)
                 .Include(d => d.ScheduleSlots)
-                    .ThenInclude(s => s.ScheduleSlotConfirmation)
                 .OrderBy(d => d.Date)
                 .ToList();
 
-            //If no schedule currently, generate and recall method
-            if (schedule.Count == 0)
+            //If no schedule currently and not a past week, generate and recall method
+            if (schedule.Count == 0 && end > DateTime.UtcNow)
             {
                 GenerateSchedule(userId, start, end.GetValueOrDefault(start.AddDays(6)), new GenerateScheduleRequest());
                 return GetSchedule(userId, start, end);
             }
 
             return schedule;
+        }
+
+        public bool MoveSlot(int userId, int slotId, int dayId)
+        {
+            var currentSlot = _dbContext.ScheduleSlots.Include(s => s.ScheduleDay)
+                .FirstOrDefault(s => s.Id == slotId);
+            var weekStart = GetWeekStart(currentSlot.ScheduleDay.Date);
+
+            var schedule = GetSchedule(userId, weekStart);
+            var targetDay = schedule.FirstOrDefault(d => dayId != currentSlot.ScheduleDayId && d.Id == dayId);
+            if (targetDay == null || targetDay.DietTypeId != 0)
+            {
+                return false;
+            }
+
+            currentSlot.ScheduleDay.DietTypeId = 0;
+            _dbContext.SaveChanges();
+
+            currentSlot.ScheduleDay = null;
+            currentSlot.ScheduleDayId = targetDay.Id;
+            _dbContext.SaveChanges();
+
+            return true;
+        }
+
+        public ScheduleDayDto AddChallengeDay(int userId, DateTime date)
+        {
+            var scheduleDay = _dbContext.ScheduleDays
+                .Include(d => d.ScheduleSlots)
+                .FirstOrDefault(s => s.UserId == userId && s.Date == date);
+
+            if (scheduleDay == null || !(scheduleDay.ScheduleSlots == null || !scheduleDay.ScheduleSlots.Any()))
+            {
+                return null;
+            }
+
+            var goal = _dietService.GetDietGoalsByUserId(userId, date)?.FirstOrDefault();
+            //Pull the preferences to know which meals to filter to (Quick&Dirty, Healthy, etc)
+            var preference = _dietService.GetPreferences(userId);
+
+            scheduleDay.DietTypeId = goal.TargetDietId;
+            var slots = new List<ScheduleSlot>();
+
+            foreach (var mealType in preference.MealTypes)
+            {
+                var slot = new ScheduleSlot
+                {
+                    ScheduleDayId = scheduleDay.Id,
+                    IsChallenge = true,
+                    ConfirmStatus = ConfirmStatus.UNSET,
+                    Type = mealType,
+                };
+                slots.Add(slot);
+            }
+            _dbContext.ScheduleSlots.AddRange(slots);
+            _dbContext.SaveChanges();
+
+            foreach (var slot in slots)
+            {
+                RegenerateSlot(userId, slot.Id);
+            }
+            return ToScheduleDayDto(scheduleDay);
         }
 
         public ScheduleSlotDto RegenerateSlot(int userId, int slotId)
@@ -77,8 +151,7 @@ namespace MealsService.Services
             };
 
             var myVotes = _dbContext.RecipeVotes
-                .Where(v => v.UserId == userId)
-                .Select(v => v.RecipeId)
+                .Where(v => v.UserId == userId && v.Vote != RecipeVote.VoteType.UNKNOWN)
                 .ToList();
 
             var recipeWeights = new Dictionary<int, int>
@@ -86,9 +159,10 @@ namespace MealsService.Services
                 {slot.MealId, 1}
             };
 
+            //TODO: Do a better job of preferring Liked/Hated recipes
             foreach (var vote in myVotes)
             {
-                recipeWeights.Add(vote, 100);
+                recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
             }
             
             //TODO: preference recipes not present this week
@@ -96,9 +170,7 @@ namespace MealsService.Services
             var recipe = GetRandomMeal(randomRecipeRequest, recipeWeights);
 
             //TODO: Update shopping list instead of clearing it
-            var days = (int)slot.ScheduleDay.Date.DayOfWeek - 1;
-            if (days < 0) days += 7;
-            var weekBeginning = slot.ScheduleDay.Date.Subtract(new TimeSpan(days, 0, 0, 0));
+            var weekBeginning = GetWeekStart(slot.ScheduleDay.Date);
 
             ((ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService))).ClearShoppingList(userId, weekBeginning);
 
@@ -121,7 +193,6 @@ namespace MealsService.Services
             
             //TODO: support multiple diet goals
             var dietGoal = _dietService.GetDietGoalsByUserId(userId).FirstOrDefault();
-            var daysForDiet = _dietService.GetTargetForDiet(userId, dietGoal.TargetDietId);
             var currentDay = new DateTime(start.Ticks, DateTimeKind.Utc);
             
             ClearSchedule(userId, start, end);
@@ -136,6 +207,7 @@ namespace MealsService.Services
             
             _dbContext.SaveChanges();
 
+            //TODO: This should be a RecipeService method
             //TODO: Take into account schedule for days/weeks before and after this timeframe
             var myVotes = _dbContext.RecipeVotes
                 .Where(v => v.UserId == userId)
@@ -154,20 +226,26 @@ namespace MealsService.Services
                 ConsumeIngredients = request.RecipeIngredients
             };
 
+            var changeDays = _dietService.GetChangeDays(userId, start);
+
             while (currentDay.Ticks <= end.Ticks)
             {
+                //Weeks start on Monday
+                var currentDOW = (int) currentDay.DayOfWeek - 1;
+                if (currentDOW < 0) currentDOW += 7;
+
                 var scheduleDay = new ScheduleDay
                 {
                     Date = currentDay,
-                    DietTypeId = daysForDiet > 0 ? dietGoal.TargetDietId : 0,
+                    DietTypeId = changeDays.Contains(currentDOW) ? dietGoal.TargetDietId : 0,
                     UserId = userId,
-                    ScheduleSlots = new List<ScheduleSlot>(),
                     Created = DateTime.UtcNow,
                     Modified = DateTime.UtcNow
                 };
 
                 if (scheduleDay.DietTypeId > 0)
                 {
+                    scheduleDay.ScheduleSlots = new List<ScheduleSlot>();
                     randomRecipeRequest.DietTypeId = scheduleDay.DietTypeId;
 
                     foreach (var mealType in preference.MealTypes)
@@ -195,8 +273,6 @@ namespace MealsService.Services
                 }
 
                 _dbContext.ScheduleDays.Add(scheduleDay);
-
-                daysForDiet--;
                 currentDay = currentDay.AddDays(1);
             }
 
@@ -205,31 +281,19 @@ namespace MealsService.Services
 
         public bool ConfirmDay(int userId, int scheduleSlotId, ConfirmStatus confirm)
         {
-            var confirmation = _dbContext.ScheduleSlotConfirmations.FirstOrDefault(c =>
-                c.UserId == userId && c.ScheduleSlotId == scheduleSlotId);
+            var slot = _dbContext.ScheduleSlots
+                .Where(s => s.Id == scheduleSlotId)
+                .Include(s => s.ScheduleDay)
+                .FirstOrDefault();
 
-            if (confirmation == null)
+            if (slot == null || slot.ScheduleDay.UserId != userId)
             {
-                var slot = _dbContext.ScheduleSlots.Include(s => s.ScheduleDay)
-                    .FirstOrDefault(s => s.Id == scheduleSlotId);
-
-                if (slot == null || slot.ScheduleDay.UserId != userId)
-                {
-                    //TODO: Throw an appropriate error to be sent to user
-                    return false;
-                }
-
-                confirmation = new ScheduleSlotConfirmation
-                {
-                    ScheduleSlotId = scheduleSlotId,
-                    UserId = userId
-                };
-
-                _dbContext.ScheduleSlotConfirmations.Add(confirmation);
+                return false;
             }
-
-            confirmation.Confirm = confirm;
-            return _dbContext.Entry(confirmation).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+            
+            slot.ConfirmStatus = confirm;
+            
+            return _dbContext.Entry(slot).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
         }
 
 
@@ -237,6 +301,7 @@ namespace MealsService.Services
         {
             return new ScheduleDayDto
             {
+                Id = day.Id,
                 Date = day.Date,
                 LastModified = day.Modified,
                 DietType = day.DietType?.Name,
@@ -252,7 +317,9 @@ namespace MealsService.Services
                 Id = slot.Id,
                 MealType = slot.Type.ToString(),
                 RecipeId = slot.MealId,
-                Confirmed = slot.ScheduleSlotConfirmation?.Confirm ?? ConfirmStatus.UNSET
+                Confirmed = slot.ConfirmStatus,
+                ScheduleDayId = slot.ScheduleDayId,
+                IsChallenge = slot.IsChallenge
             };
         }
 

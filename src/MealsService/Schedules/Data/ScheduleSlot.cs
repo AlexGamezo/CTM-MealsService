@@ -3,10 +3,16 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.Serialization;
 
 using MealsService.Recipes.Data;
-using MealsService.Schedules.Data;
 
 namespace MealsService.Models
 {
+    public enum ConfirmStatus
+    {
+        UNSET = 0,
+        CONFIRMED_YES = 1,
+        CONFIRMED_NO = 2
+    }
+
     /// <summary>
     /// Individual slot for a given schedule day
     /// * HasOne Meal
@@ -19,6 +25,8 @@ namespace MealsService.Models
         public int ScheduleDayId { get; set; }
         public int MealId { get; set; }
         public Meal.Type Type { get; set; }
+        public ConfirmStatus ConfirmStatus { get; set; }
+        public bool IsChallenge { get; set; }
 
         /// <summary>
         /// Relationships
@@ -27,6 +35,5 @@ namespace MealsService.Models
         [IgnoreDataMember]
         public ScheduleDay ScheduleDay { get; set; }
         public Meal Meal { get; set; }
-        public ScheduleSlotConfirmation ScheduleSlotConfirmation { get; set; }
     }
 }

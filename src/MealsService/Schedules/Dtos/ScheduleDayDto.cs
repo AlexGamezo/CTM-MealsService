@@ -6,6 +6,7 @@ namespace MealsService.Responses.Schedules
 {
     public class ScheduleDayDto
     {
+        public int Id { get; set; }
         public DateTime Date { get; set; }
         public DateTime LastModified { get; set; }
 

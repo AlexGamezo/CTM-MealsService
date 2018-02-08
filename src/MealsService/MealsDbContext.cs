@@ -4,7 +4,6 @@ using MealsService.Diets.Data;
 using MealsService.Ingredients.Data;
 using MealsService.Models;
 using MealsService.Recipes.Data;
-using MealsService.Schedules.Data;
 using MealsService.ShoppingList.Data;
 using MealsService.Tags.Data;
 
@@ -36,14 +35,13 @@ namespace MealsService
         public DbSet<ScheduleGenerated> ScheduleGenerations { get; set; }
         public DbSet<ScheduleDay> ScheduleDays { get; set; }
         public DbSet<ScheduleSlot> ScheduleSlots { get; set; }
-
-        public DbSet<ScheduleSlotConfirmation> ScheduleSlotConfirmations { get; set; }
-
+        
         public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
 
         //Configurations/User Options
         public DbSet<DietGoal> DietGoals { get; set; }
         public DbSet<MenuPreference>  MenuPreferences { get; set; }
+        public DbSet<ChangeDay> ChangeDays { get; set; }
         
         #endregion
 
@@ -57,8 +55,6 @@ namespace MealsService
                 .HasIndex(d => d.UserId);
             modelBuilder.Entity<ScheduleGenerated>()
                 .HasIndex(g => g.UserId);
-            modelBuilder.Entity<ScheduleSlotConfirmation>()
-                .HasIndex(c => new {c.UserId, c.ScheduleSlotId} );
 
             modelBuilder.Entity<ShoppingListItem>()
                 .HasIndex(i => new {i.UserId, i.WeekStart});

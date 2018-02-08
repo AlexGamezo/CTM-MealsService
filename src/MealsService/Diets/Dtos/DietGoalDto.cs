@@ -14,7 +14,7 @@ namespace MealsService.Diets.Dtos
 
         public int Target { get; set; }
         public int Current { get; set; }
-
+        
         public long Updated { get; set; }
         
     }

@@ -29,7 +29,8 @@ namespace MealsService.Diets.Data
 
         [JsonProperty(ItemConverterType = typeof(StringEnumConverter))]
         [NotMapped]
-        public List<Meal.Type> MealTypes { get
+        public List<Meal.Type> MealTypes {
+            get
             {
                 if (_mealTypes == null && !string.IsNullOrEmpty(_mealTypesList))
                 {
@@ -54,7 +55,7 @@ namespace MealsService.Diets.Data
                 _mealTypes = value.Split(',').Select(t => (Meal.Type) int.Parse(t)).ToList();
             }
         }
-
+        
         [ForeignKey("CurrentDietTypeId")]
         public DietType CurrentDietType { get; set; }
 

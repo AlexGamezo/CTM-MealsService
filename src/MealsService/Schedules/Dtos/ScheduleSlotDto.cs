@@ -1,5 +1,4 @@
-﻿
-using MealsService.Schedules.Dtos;
+﻿using MealsService.Models;
 
 namespace MealsService.Responses.Schedules
 {
@@ -9,5 +8,7 @@ namespace MealsService.Responses.Schedules
         public string MealType { get; set; }
         public int RecipeId { get; set; }
         public ConfirmStatus Confirmed { get; set; }
+        public int ScheduleDayId { get; set; }
+        public bool IsChallenge { get; set; }
     }
 }

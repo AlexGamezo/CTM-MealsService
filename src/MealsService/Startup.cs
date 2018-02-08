@@ -89,7 +89,6 @@ namespace MealsService
 
             app.UseDeveloperExceptionPage();
 
-            
             app.UseCors(builder =>
             {
                 builder.WithOrigins("http://localhost:63516", "http://localhost:63517")
