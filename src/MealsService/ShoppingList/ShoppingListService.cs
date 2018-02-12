@@ -61,7 +61,7 @@ namespace MealsService.ShoppingList
             ClearShoppingList(userId, weekStart);
             if (schedule.Any(d => d.ScheduleSlots.Any(s => s.MealId > 0)))
             {
-                HandleSlotsAdded(userId, schedule.SelectMany(d => d.ScheduleSlots).ToList(), weekStart);
+                HandleSlotsAdded(userId, schedule.SelectMany(d => d.ScheduleSlots).ToList(), weekStart, false);
             }
         }
 
@@ -138,10 +138,13 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public void HandleSlotsAdded(int userId, List<ScheduleSlot> slots, DateTime weekStart)
+        public void HandleSlotsAdded(int userId, List<ScheduleSlot> slots, DateTime weekStart, bool pregenShoppingList = true)
         {
             //Make sure the shopping list has been generated before making changes to it
-            GetShoppingList(userId, weekStart);
+            if (pregenShoppingList)
+            {
+                GetShoppingList(userId, weekStart);
+            }
 
             var mealIds = slots.Where(s => s.MealId > 0)
                 .GroupBy(id => id.MealId).ToList();
