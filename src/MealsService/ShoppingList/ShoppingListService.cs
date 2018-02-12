@@ -59,7 +59,10 @@ namespace MealsService.ShoppingList
             var schedule = _scheduleService.GetSchedule(userId, weekStart);
 
             ClearShoppingList(userId, weekStart);
-            HandleSlotsAdded(userId, schedule.SelectMany(d => d.ScheduleSlots).ToList(), weekStart);
+            if (schedule.Any(d => d.ScheduleSlots.Any(s => s.MealId > 0)))
+            {
+                HandleSlotsAdded(userId, schedule.SelectMany(d => d.ScheduleSlots).ToList(), weekStart);
+            }
         }
 
         public void HandleSlotsRemoved(int userId, List<ScheduleSlot> slots)

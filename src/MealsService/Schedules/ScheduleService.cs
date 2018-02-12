@@ -61,7 +61,7 @@ namespace MealsService.Services
                 .ToList();
 
             //If no schedule currently and not a past week, generate and recall method
-            if (schedule.Count == 0 && end > DateTime.UtcNow && regenIfEmpty)
+            if (schedule.Count == 0 && end >= DateTime.UtcNow.Date && regenIfEmpty)
             {
                 GenerateSchedule(userId, start, end.GetValueOrDefault(start.AddDays(6)), new GenerateScheduleRequest());
                 return GetSchedule(userId, start, end, false);

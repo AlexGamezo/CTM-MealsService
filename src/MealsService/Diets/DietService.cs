@@ -106,8 +106,7 @@ namespace MealsService.Diets
             {
                 dietGoals.Add(_repository.DefaultDietGoal(userId));
             }
-
-            if (when.HasValue)
+            else if (when.HasValue)
             {
                 dietGoals.ForEach(g => g.Current = GetTargetForDiet(userId, g.TargetDietId, when));
             }

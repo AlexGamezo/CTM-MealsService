@@ -143,10 +143,10 @@ namespace MealsService.Diets.Data
                 UserId = userId,
                 Created = DateTime.UtcNow,
                 Updated = DateTime.UtcNow,
-                Current = 7,
+                Current = 1,
                 Target = 7,
                 ReductionRate = ReductionRate.Weekly,
-                TargetDietId = 1
+                TargetDietId = 3
             };
         }
     }
