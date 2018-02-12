@@ -37,6 +37,7 @@ namespace MealsService
         public DbSet<ScheduleSlot> ScheduleSlots { get; set; }
         
         public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
+        public DbSet<ShoppingListItemScheduleSlot> ShoppingListItemScheduleSlots { get; set; }
 
         //Configurations/User Options
         public DbSet<DietGoal> DietGoals { get; set; }

@@ -6,7 +6,8 @@ namespace MealsService.Schedules.Dtos
         public enum Operation
         {
             Unknown = 0,
-            AcceptChallenge = 1
+            AcceptChallenge = 1,
+            DeclineChallenge = 2
         }
 
         public Operation Op { get; set; }

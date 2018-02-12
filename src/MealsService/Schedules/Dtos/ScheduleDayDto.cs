@@ -13,6 +13,7 @@ namespace MealsService.Responses.Schedules
         public string DietType { get; set; }
         public int DietTypeId { get; set; }
 
+        public bool IsChallenge { get; set; }
         public List<ScheduleSlotDto> ScheduleSlots { get; set; }
     }
 }

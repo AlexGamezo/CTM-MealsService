@@ -47,23 +47,24 @@ namespace MealsService.Services
             return when.Value.Subtract(new TimeSpan(days, 0, 0, 0));
         }
 
-        public List<ScheduleDay> GetSchedule(int userId, DateTime start, DateTime? end = null)
+        public List<ScheduleDay> GetSchedule(int userId, DateTime start, DateTime? end = null, bool regenIfEmpty = true)
         {
             if (!end.HasValue)
             {
                 end = start.AddDays(6);
             }
             
-            var schedule = _dbContext.ScheduleDays.Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)
+            var schedule = _dbContext.ScheduleDays
+                .Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)
                 .Include(d => d.ScheduleSlots)
                 .OrderBy(d => d.Date)
                 .ToList();
 
             //If no schedule currently and not a past week, generate and recall method
-            if (schedule.Count == 0 && end > DateTime.UtcNow)
+            if (schedule.Count == 0 && end > DateTime.UtcNow && regenIfEmpty)
             {
                 GenerateSchedule(userId, start, end.GetValueOrDefault(start.AddDays(6)), new GenerateScheduleRequest());
-                return GetSchedule(userId, start, end);
+                return GetSchedule(userId, start, end, false);
             }
 
             return schedule;
@@ -73,6 +74,12 @@ namespace MealsService.Services
         {
             var currentSlot = _dbContext.ScheduleSlots.Include(s => s.ScheduleDay)
                 .FirstOrDefault(s => s.Id == slotId);
+
+            if (currentSlot == null)
+            {
+                return false;
+            }
+
             var weekStart = GetWeekStart(currentSlot.ScheduleDay.Date);
 
             var schedule = GetSchedule(userId, weekStart);
@@ -82,9 +89,9 @@ namespace MealsService.Services
                 return false;
             }
 
-            currentSlot.ScheduleDay.DietTypeId = 0;
-            _dbContext.SaveChanges();
-
+            var oldDay = currentSlot.ScheduleDay;
+            oldDay.DietTypeId = 0;
+            
             currentSlot.ScheduleDay = null;
             currentSlot.ScheduleDayId = targetDay.Id;
             _dbContext.SaveChanges();
@@ -128,10 +135,37 @@ namespace MealsService.Services
             {
                 RegenerateSlot(userId, slot.Id);
             }
+
+            var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+            shoppingListService.HandleSlotsAdded(userId, slots, GetWeekStart(date));
+
             return ToScheduleDayDto(scheduleDay);
         }
 
-        public ScheduleSlotDto RegenerateSlot(int userId, int slotId)
+        public ScheduleDayDto RemoveChallengeDay(int userId, DateTime date)
+        {
+            var scheduleDay = _dbContext.ScheduleDays
+                .Include(d => d.ScheduleSlots)
+                .FirstOrDefault(s => s.UserId == userId && s.Date == date);
+
+            if (scheduleDay == null || scheduleDay.ScheduleSlots == null || !scheduleDay.ScheduleSlots.Any() ||
+                scheduleDay.DietTypeId == 0 || scheduleDay.ScheduleSlots.Any(s => !s.IsChallenge))
+            {
+                return null;
+            }
+
+            var shoppingListService = (ShoppingListService) _serviceProvider.GetService(typeof(ShoppingListService));
+            shoppingListService.HandleSlotsRemoved(userId, scheduleDay.ScheduleSlots);
+
+            scheduleDay.DietTypeId = 0;
+            _dbContext.ScheduleSlots.RemoveRange(scheduleDay.ScheduleSlots);
+            scheduleDay.ScheduleSlots = new List<ScheduleSlot>();
+            _dbContext.SaveChanges();
+
+            return ToScheduleDayDto(scheduleDay);
+        }
+
+        public ScheduleSlotDto RegenerateSlot(int userId, int slotId, bool updateShoppingList = true)
         {
             var slot = _dbContext.ScheduleSlots
                 .Include(s => s.ScheduleDay)
@@ -140,6 +174,13 @@ namespace MealsService.Services
             if (slot?.ScheduleDay.UserId != userId)
             {
                 return null;
+            }
+
+            var weekBeginning = GetWeekStart(slot.ScheduleDay.Date);
+            if (updateShoppingList && slot.MealId > 0)
+            {
+                var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+                shoppingListService.HandleSlotsRemoved(userId, new List<ScheduleSlot> { slot });
             }
 
             //TODO: Add tracking for individual slot regeneration
@@ -162,23 +203,26 @@ namespace MealsService.Services
             //TODO: Do a better job of preferring Liked/Hated recipes
             foreach (var vote in myVotes)
             {
-                recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
+                if (!recipeWeights.ContainsKey(vote.RecipeId))
+                {
+                    recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
+                }
             }
             
             //TODO: preference recipes not present this week
             //TODO: Pull meal preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
             var recipe = GetRandomMeal(randomRecipeRequest, recipeWeights);
-
-            //TODO: Update shopping list instead of clearing it
-            var weekBeginning = GetWeekStart(slot.ScheduleDay.Date);
-
-            ((ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService))).ClearShoppingList(userId, weekBeginning);
-
+            
             if (recipe != null && recipe.Id != slot.MealId)
             {
                 slot.MealId = recipe.Id;
                 if (_dbContext.SaveChanges() > 0)
                 {
+                    if (updateShoppingList)
+                    {
+                        var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+                        shoppingListService.HandleSlotsAdded(userId, new List<ScheduleSlot> { slot }, weekBeginning);
+                    }
                     return ToScheduleSlotDto(slot);
                 }
             }
@@ -306,6 +350,7 @@ namespace MealsService.Services
                 LastModified = day.Modified,
                 DietType = day.DietType?.Name,
                 DietTypeId = day.DietTypeId,
+                IsChallenge = day.ScheduleSlots.Any(s => s.IsChallenge),
                 ScheduleSlots = day.ScheduleSlots.Select(ToScheduleSlotDto).ToList()
             };
         }
@@ -330,7 +375,9 @@ namespace MealsService.Services
                 .ToList();
             var dayIds = days.Select(d => d.Id).ToList();
 
-            var slots = _dbContext.ScheduleSlots.Where(s => dayIds.Contains(s.ScheduleDayId));
+            var slots = _dbContext.ScheduleSlots.Where(s => dayIds.Contains(s.ScheduleDayId)).ToList();
+
+            ((ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService))).ClearShoppingList(userId, start);
 
             _dbContext.ScheduleDays.RemoveRange(days);
             _dbContext.ScheduleSlots.RemoveRange(slots);

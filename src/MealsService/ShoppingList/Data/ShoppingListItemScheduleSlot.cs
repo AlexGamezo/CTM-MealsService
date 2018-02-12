@@ -4,6 +4,7 @@ using MealsService.Models;
 
 namespace MealsService.ShoppingList.Data
 {
+    [Table("ShoppingListItemScheduleSlot")]
     public class ShoppingListItemScheduleSlot
     {
         [Key]

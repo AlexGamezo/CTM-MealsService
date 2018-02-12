@@ -124,6 +124,16 @@ namespace MealsService.Controllers
                         scheduledDay = day
                     }));
             }
+            else if (request.Op == ScheduleDayPatchRequest.Operation.DeclineChallenge)
+            {
+                var day = _scheduleService.RemoveChallengeDay(userId, DateTime.Parse(dateString));
+
+                return Json(new SuccessResponse<object>(
+                    new
+                    {
+                        scheduledDay = day
+                    }));
+            }
 
             Response.StatusCode = (int) HttpStatusCode.BadRequest;
             return Json(new ErrorResponse("Bad request", 400));

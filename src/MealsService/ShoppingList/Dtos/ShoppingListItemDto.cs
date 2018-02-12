@@ -15,5 +15,6 @@ namespace MealsService.ShoppingList.Dtos
 
         public bool ManuallyAdded { get; set; }
         public bool Checked { get; set; }
+        public bool Unused { get; set; }
     }
 }

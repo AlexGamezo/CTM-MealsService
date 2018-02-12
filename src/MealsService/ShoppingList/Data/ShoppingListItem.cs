@@ -1,10 +1,8 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using MealsService.Ingredients.Data;
-using MealsService.Models;
 
 namespace MealsService.ShoppingList.Data
 {
@@ -24,6 +22,7 @@ namespace MealsService.ShoppingList.Data
         public float Amount { get; set; }
         public bool ManuallyAdded { get; set; }
         public bool Checked { get; set; }
+        public bool Unused { get; set; }
         public DateTime WeekStart { get; set; }
 
         /// <summary>
