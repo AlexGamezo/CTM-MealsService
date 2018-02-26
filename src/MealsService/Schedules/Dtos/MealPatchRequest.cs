@@ -1,14 +1,13 @@
-﻿
-using MealsService.Models;
+﻿using MealsService.Schedules.Data;
 
 namespace MealsService.Schedules.Dtos
 {
-    public class ScheduleSlotPatchRequest
+    public class MealPatchRequest
     {
         public enum Operation
         {
             Unknown = 0,
-            MoveSlot = 1,
+            MoveMeal = 1,
             UpdateConfirmState = 2
         }
 

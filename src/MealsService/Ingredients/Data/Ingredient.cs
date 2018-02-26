@@ -1,5 +1,4 @@
-﻿
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -8,7 +7,7 @@ using System.Runtime.Serialization;
 namespace MealsService.Ingredients.Data
 {
     /// <summary>
-    /// Ingredient that can be associated with many Meals
+    /// Ingredient that can be associated with many Recipes
     /// </summary>
     public class Ingredient
     {

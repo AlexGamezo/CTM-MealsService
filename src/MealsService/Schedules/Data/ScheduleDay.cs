@@ -5,14 +5,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 using MealsService.Diets.Data;
 
-namespace MealsService.Models
+namespace MealsService.Schedules.Data
 {
     /// <summary>
     /// Container for full-day meal schedule for a specific user.
     /// Identifies the Diet Type the day is supposed to be.
-    /// * ManyToMany Ingredients
-    /// * HasMany MealKeywords
-    /// * ManyToMany DietType
+    /// * OneToOne DietType
     /// </summary>
     public class ScheduleDay
     {
@@ -29,7 +27,8 @@ namespace MealsService.Models
         /// <summary>
         /// Relationships
         /// </summary>
-        public List<ScheduleSlot> ScheduleSlots { get; set; }
+        public List<Meal> Meals { get; set; }
         public DietType DietType { get; set; }
+        public List<Preparation> Preparations { get; set; }
     }
 }

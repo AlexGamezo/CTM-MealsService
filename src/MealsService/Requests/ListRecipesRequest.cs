@@ -11,7 +11,7 @@ namespace MealsService.Requests
         public int Limit = 10;
         public int Offset = 0;
 
-        public Meal.Type MealType = Meal.Type.Any;
+        public MealType MealType = MealType.Any;
 
         public List<int> IngredientIds = new List<int>();
         public bool AllIngredients = false;

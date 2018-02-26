@@ -1,23 +1,24 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using MealsService.Models;
+
+using MealsService.Schedules.Data;
 
 namespace MealsService.ShoppingList.Data
 {
-    [Table("ShoppingListItemScheduleSlot")]
-    public class ShoppingListItemScheduleSlot
+    [Table("ShoppingListItemPreparation")]
+    public class ShoppingListItemPreparation
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         public int ShoppingListItemId { get; set; }
-        public int ScheduleSlotId { get; set; }
+        public int PreparationId { get; set; }
 
         /// <summary>
         /// Relations
         /// </summary>
         public ShoppingListItem ShoppingListItem { get; set; }
-        public ScheduleSlot ScheduleSlot { get; set; }
+        public Preparation Preparation { get; set; }
     }
 }

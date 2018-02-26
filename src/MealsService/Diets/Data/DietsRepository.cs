@@ -1,9 +1,9 @@
 ﻿
 using System;
-using MealsService.Recipes.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
+using MealsService.Recipes.Data;
 
 namespace MealsService.Diets.Data
 {
@@ -36,6 +36,15 @@ namespace MealsService.Diets.Data
         public List<DietGoal> GetDietGoals(int userId)
         {
             return _context.DietGoals.Where(g => g.UserId == userId).ToList();
+        }
+
+        public PrepPlan GetPrepPlan(int userId, int targetDays)
+        {
+            return _context.PrepPlans
+                .Include(p => p.Generators)
+                    .ThenInclude(g => g.Consumers)
+                .Include(p => p.Consumers)
+                .FirstOrDefault(d => d.UserId == userId && d.NumTargetDays == targetDays);
         }
 
         public List<ChangeDay> GetChangeDays(int userId, int targetDays)
@@ -118,7 +127,7 @@ namespace MealsService.Diets.Data
         {
             var preference = GetMenuPreference(userId);
 
-            preference.MealStyle = update.MealStyle;
+            preference.RecipeStyle = update.RecipeStyle;
             preference.MealTypes = update.MealTypes;
             preference.ShoppingFreq = update.ShoppingFreq;
 
@@ -130,8 +139,8 @@ namespace MealsService.Diets.Data
             return new MenuPreference
             {
                 UserId = userId,
-                MealStyle = MealStyle.ChefSpecial,
-                MealTypes = new List<Meal.Type> { Meal.Type.Dinner },
+                RecipeStyle = RecipeStyle.ChefSpecial,
+                MealTypes = new List<MealType> { MealType.Dinner },
                 CurrentDietTypeId = _context.DietTypes.FirstOrDefault().Id
             };
         }

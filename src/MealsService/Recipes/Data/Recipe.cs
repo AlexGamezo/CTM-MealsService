@@ -8,10 +8,9 @@ namespace MealsService.Recipes.Data
     /// <summary>
     /// Container for a set dish.
     /// * ManyToMany Ingredients
-    /// * HasMany MealKeywords
     /// * ManyToMany DietType
     /// </summary>
-    public class Meal
+    public class Recipe
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -25,7 +24,7 @@ namespace MealsService.Recipes.Data
 
         public string Image { get; set; }
 
-        public Type MealType { get; set; }
+        public MealType MealType { get; set; }
 
         public int PrepTime { get; set; }
         public int CookTime { get; set; }
@@ -37,21 +36,21 @@ namespace MealsService.Recipes.Data
         /// <summary>
         /// Relationships
         /// </summary>
-        public List<MealIngredient> MealIngredients { get; set; }
+        public List<RecipeIngredient> RecipeIngredients { get; set; }
         public List<RecipeStep> Steps { get; set; }
 
         [ForeignKey("RecipeId")]
         public List<RecipeVote> Votes { get; set; }
 
-        public List<MealDietType> MealDietTypes { get; set; }
+        public List<RecipeDietType> RecipeDietTypes { get; set; }
+    }
 
-        public enum Type
-        {
-            Any,
-            Breakfast,
-            Lunch,
-            Dinner,
-            Snack
-        }
+    public enum MealType
+    {
+        Any = 0,
+        Breakfast = 1,
+        Lunch = 2,
+        Dinner = 3,
+        Snack = 4
     }
 }

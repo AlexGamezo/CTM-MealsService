@@ -40,7 +40,7 @@ namespace MealsService.Diets
         {
             var preference = _repository.GetMenuPreference(userId);
 
-            preference.MealStyle = update.MealStyle;
+            preference.RecipeStyle = update.RecipeStyle;
             preference.MealTypes = update.MealTypes;
             preference.ShoppingFreq = update.ShoppingFreq;
             preference.CurrentDietTypeId = update.CurrentDietId;
@@ -168,6 +168,51 @@ namespace MealsService.Diets
             return changeDaysOfWeek;
         }
 
+        public PrepPlan GetPrepPlan(int userId, DateTime when)
+        {
+            var primaryGoal = GetDietGoalsByUserId(userId, when).FirstOrDefault();
+            var prepPlan = _repository.GetPrepPlan(userId, primaryGoal.Current);
+
+            if (prepPlan == null)
+            {
+                var changeDays = GetChangeDays(userId, when);
+                var prefs = GetPreferences(userId);
+                prepPlan = new PrepPlan
+                {
+                    NumTargetDays = primaryGoal.Current,
+                    Generators = new List<PrepPlanGenerator>(),
+                    Consumers = new List<PrepPlanConsumer>()
+                };
+
+                foreach(var day in changeDays)
+                {
+                    foreach (var mealType in prefs.MealTypes)
+                    {
+                        var generator = new PrepPlanGenerator
+                        {
+                            DayOfWeek = day,
+                            MealType = mealType,
+                            NumServings = 2,
+                            Consumers = new List<PrepPlanConsumer>
+                            {
+                                new PrepPlanConsumer
+                                {
+                                    DayOfWeek = day,
+                                    MealType = mealType,
+                                    NumServings = 2
+                                }
+                            }
+                        };
+
+                        prepPlan.Generators.Add(generator);
+                        prepPlan.Consumers.AddRange(generator.Consumers);
+                    }
+                }
+            }
+
+            return prepPlan;
+        }
+
         public void SetChangeDays(int userId, DateTime when, List<int> changeDays)
         {
             var primaryGoal = GetDietGoalsByUserId(userId, when).FirstOrDefault();
@@ -201,7 +246,7 @@ namespace MealsService.Diets
             return new MenuPreferencesDto
             {
                 ShoppingFreq = model.ShoppingFreq,
-                MealStyle = model.MealStyle,
+                RecipeStyle = model.RecipeStyle,
                 MealTypes = model.MealTypes,
                 CurrentDietId = model.CurrentDietTypeId
             };

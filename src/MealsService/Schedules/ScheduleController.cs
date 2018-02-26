@@ -2,8 +2,10 @@
 using System;
 using System.Linq;
 using System.Net;
-using MealsService.Common;
 using Microsoft.AspNetCore.Authorization;
+
+using MealsService.Common;
+using MealsService.Common.Extensions;
 
 using MealsService.Responses;
 using MealsService.Services;
@@ -37,15 +39,15 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            DateTime date = dateString == "" ? _scheduleService.GetWeekStart(DateTime.UtcNow) : DateTime.Parse(dateString);
+            DateTime date = dateString == "" ? DateTime.UtcNow : DateTime.Parse(dateString);
 
-            var weekBeginning = _scheduleService.GetWeekStart(date);
+            var weekBeginning = date.GetWeekStart();
 
             var scheduleDays = _scheduleService.GetSchedule(userId, weekBeginning)
                 .Select(_scheduleService.ToScheduleDayDto)
                 .ToList();
 
-            var recipeIds = scheduleDays.SelectMany(d => d.ScheduleSlots.Select(s => s.RecipeId));
+            var recipeIds = scheduleDays.SelectMany(d => d.Meals.Select(s => s.RecipeId));
             var recipes = _recipesService.GetRecipes(recipeIds, userId);
 
             return Json(new SuccessResponse<object>( new
@@ -56,26 +58,23 @@ namespace MealsService.Controllers
         }
 
         [Authorize]
-        [Route("me/slots/{slotId:int}/recycles"), HttpPost]
-        public IActionResult RegenerateSlot(int slotId) 
+        [Route("me/slots/{preparationId:int}/recycles"), HttpPost]
+        public IActionResult RegenerateSlot(int preparationId) 
         {
-            var newSlot = _scheduleService.RegenerateSlot(AuthorizedUser, slotId);
+            var success = _scheduleService.RegeneratePreparation(AuthorizedUser, preparationId);
 
-            if (newSlot != null)
+            if (success)
             {
-                return Json(new SuccessResponse<object>(
-                new {
-                    slot = newSlot
-                }));
+                return Json(new SuccessResponse());
             }
 
             return Json(new ErrorResponse("Could not regenerate slot", 500));
         }
         
         [Authorize]
-        [Route("me/slots/{slotId:int}"), HttpPatch]
-        [Route("{userId:int}/slots/{slotId:int}"), HttpPatch]
-        public IActionResult UpdateSlot(int userId, int slotId, [FromBody]ScheduleSlotPatchRequest request)
+        [Route("me/meals/{mealId:int}"), HttpPatch]
+        [Route("{userId:int}/meals/{mealId:int}"), HttpPatch]
+        public IActionResult UpdateMeal(int userId, int mealId, [FromBody]MealPatchRequest request)
         {
             if (userId == 0)
             {
@@ -84,13 +83,13 @@ namespace MealsService.Controllers
 
             var success = false;
 
-            if (request.Op == ScheduleSlotPatchRequest.Operation.MoveSlot)
+            if (request.Op == MealPatchRequest.Operation.MoveMeal)
             {
-                success = _scheduleService.MoveSlot(userId, slotId, request.ScheduleDayId);
+                success = _scheduleService.MoveMeal(userId, mealId, request.ScheduleDayId);
             }
-            else if (request.Op == ScheduleSlotPatchRequest.Operation.UpdateConfirmState)
+            else if (request.Op == MealPatchRequest.Operation.UpdateConfirmState)
             {
-                success = _scheduleService.ConfirmDay(userId, slotId, request.Confirm);
+                success = _scheduleService.ConfirmMeal(userId, mealId, request.Confirm);
             }
 
             if (!success)
@@ -151,8 +150,9 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            DateTime date = dateString == "" ? _scheduleService.GetWeekStart(DateTime.UtcNow) : DateTime.Parse(dateString);
+            DateTime date = dateString == "" ? DateTime.UtcNow : DateTime.Parse(dateString);
 
+            date = date.GetWeekStart();
             var end = date.AddDays(6);
 
             if (end > DateTime.UtcNow)

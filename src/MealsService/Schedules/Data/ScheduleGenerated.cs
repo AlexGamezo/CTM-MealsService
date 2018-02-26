@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 
-namespace MealsService.Models
+namespace MealsService.Schedules.Data
 {
     /// <summary>
     /// Tracking event for when a user schedule is generated (first time in a week and each user-triggered regeneration)

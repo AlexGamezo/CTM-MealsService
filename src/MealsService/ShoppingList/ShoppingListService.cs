@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using MealsService.Models;
 using MealsService.Recipes;
+using MealsService.Schedules.Data;
 using MealsService.Services;
 using MealsService.ShoppingList.Data;
 using MealsService.ShoppingList.Dtos;
@@ -59,39 +60,49 @@ namespace MealsService.ShoppingList
             var schedule = _scheduleService.GetSchedule(userId, weekStart);
 
             ClearShoppingList(userId, weekStart);
-            if (schedule.Any(d => d.ScheduleSlots.Any(s => s.MealId > 0)))
+            if (schedule.Any(d => d.Meals.Any(s => s.RecipeId > 0)))
             {
-                HandleSlotsAdded(userId, schedule.SelectMany(d => d.ScheduleSlots).ToList(), weekStart, false);
+                HandlePreparationsAdded(userId, schedule.SelectMany(d => d.Preparations).ToList(), weekStart, false);
             }
         }
 
-        public void HandleSlotsRemoved(int userId, List<ScheduleSlot> slots)
+        public void HandlePreparationsRemoved(int userId, List<Preparation> preparations)
         {
-            if (slots.All(s => s.MealId == 0))
+            //If these preparations had no recipe assigned, there's nothing to remove/update
+            if (preparations.All(s => s.RecipeId == 0))
             {
                 return;
             }
 
-            var slotIds = slots.Select(s => s.Id).ToList();
-            var recipes = _recipesService.GetRecipes(slots.Select(s => s.MealId).ToList()).ToDictionary(r => r.Id);
-            var slotRecipes = slots.Where(s => s.MealId != 0).ToDictionary(s => s.Id, s => recipes[s.MealId]);
+            var recipes = _recipesService.GetRecipes(preparations.Select(s => s.RecipeId).ToList()).ToDictionary(r => r.Id);
+            var prepRecipes = preparations.Where(s => s.RecipeId != 0).ToDictionary(s => s.Id, s => recipes[s.RecipeId]);
 
-            var associations = _dbContext.ShoppingListItemScheduleSlots
+            var associations = _dbContext.ShoppingListItemPreparations
                 .Include(i => i.ShoppingListItem)
-                .Where(i => slotIds.Contains(i.ScheduleSlotId))
+                .Where(i => prepRecipes.ContainsKey(i.PreparationId))
                 .ToList();
 
             var unusedIngredients = new List<ShoppingListItem>();
             
             foreach (var assoc in associations)
             {
-                if (!slotRecipes.ContainsKey(assoc.ScheduleSlotId))
+                if (!prepRecipes.ContainsKey(assoc.PreparationId))
                 {
                     continue;
                 }
+                
+                var preparation = preparations.First(p => p.Id == assoc.PreparationId);
+                if (preparation.Meals == null || !preparation.Meals.Any())
+                {
+                    //TODO: Have a dedicated exception thrown
+                    throw new InvalidDataException();
+                }
 
-                var ingredient = slotRecipes[assoc.ScheduleSlotId].Ingredients
+                var recipe = prepRecipes[assoc.PreparationId];
+                var ingredientScale = (float)preparation.Meals.Sum(m => m.Servings) / recipe.NumServings;
+                var ingredient = recipe.Ingredients
                     .FirstOrDefault(i => i.IngredientId == assoc.ShoppingListItem.IngredientId);
+
                 if (ingredient != null)
                 {
                     if (assoc.ShoppingListItem.Checked)
@@ -113,10 +124,10 @@ namespace MealsService.ShoppingList
                             unusedIngredients.Add(unused);
                         }
 
-                        unused.Amount += ingredient.Quantity;
+                        unused.Amount += ingredient.Quantity * ingredientScale;
                     }
 
-                    assoc.ShoppingListItem.Amount -= ingredient.Quantity;
+                    assoc.ShoppingListItem.Amount -= ingredient.Quantity * ingredientScale;
                     
                     if (assoc.ShoppingListItem.Amount < 0.001)
                     {
@@ -130,6 +141,7 @@ namespace MealsService.ShoppingList
                 _dbContext.ShoppingListItems.AddRange(unusedIngredients);
             }
 
+            //Need to remove, in case Preparation is being regenerated
             if (associations.Any())
             {
                 _dbContext.RemoveRange(associations);
@@ -138,7 +150,7 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public void HandleSlotsAdded(int userId, List<ScheduleSlot> slots, DateTime weekStart, bool pregenShoppingList = true)
+        public void HandlePreparationsAdded(int userId, List<Preparation> preparations, DateTime weekStart, bool pregenShoppingList = true)
         {
             //Make sure the shopping list has been generated before making changes to it
             if (pregenShoppingList)
@@ -146,25 +158,25 @@ namespace MealsService.ShoppingList
                 GetShoppingList(userId, weekStart);
             }
 
-            var mealIds = slots.Where(s => s.MealId > 0)
-                .GroupBy(id => id.MealId).ToList();
+            var recipeServings = preparations.Where(s => s.RecipeId > 0)
+                .GroupBy(id => id.RecipeId).ToDictionary(g => g.Key, g => g.Sum(p => p.Meals.Sum(m => m.Servings)));
 
-            //MealId => Recipe
-            var meals = _recipesService.FindRecipes(mealIds.Select(g => g.Key), userId).ToDictionary(r => r.Id);
+            //RecipeId => Recipe
+            var recipes = _recipesService.FindRecipes(recipeServings.Keys, userId).ToDictionary(r => r.Id);
 
-            //MealIngredientId => MealId
-            var mealIngredientMap = meals.Values
-                .SelectMany(m => m.MealIngredients.Select(mi => new KeyValuePair<int, int>(mi.Id, m.Id)))
+            //RecipeIngredientId => RecipeId
+            var recipeIngredientMap = recipes.Values
+                .SelectMany(m => m.RecipeIngredients.Select(mi => new KeyValuePair<int, int>(mi.Id, m.Id)))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
             var listItems = new List<ShoppingListItem>();
 
-            //IngredientId => List<MealIngredient>
-            var ingredients = meals.Values.SelectMany(m => m.MealIngredients).GroupBy(mi => mi.IngredientId);
+            //IngredientId => List<RecipeIngredient>
+            var ingredients = recipes.Values.SelectMany(m => m.RecipeIngredients).GroupBy(mi => mi.IngredientId);
 
             foreach (var group in ingredients)
             {
-                //List of MealIngredients, grouped by MeasureType
+                //List of RecipeIngredients, grouped by MeasureType
                 foreach (var measureGroup in group.GroupBy(i => i.MeasureTypeId))
                 {
                     var items = _dbContext.ShoppingListItems.Where(s =>
@@ -176,7 +188,12 @@ namespace MealsService.ShoppingList
                     var item = items.FirstOrDefault(i => !i.Unused && !i.Checked);
                     var checkedItem = items.FirstOrDefault(i => !i.Unused && i.Checked);
                     var unused = items.FirstOrDefault(i => i.Unused);
-                    var amountNeeded = measureGroup.Sum(mi => mi.Amount);
+                    var amountNeeded = measureGroup.Sum(mi =>
+                    {
+                        var recipe = recipes[mi.RecipeId];
+                        var recipeScale = (float) recipeServings[mi.RecipeId] / recipe.NumServings;
+                        return mi.Amount * recipeScale;
+                    });
 
                     if (unused != null)
                     {
@@ -229,9 +246,9 @@ namespace MealsService.ShoppingList
                         }
                     }
                     
-                    if (item.ScheduleSlots == null)
+                    if (item.ShoppingListItemPreparations == null)
                     {
-                        item.ScheduleSlots = new List<ShoppingListItemScheduleSlot>();
+                        item.ShoppingListItemPreparations = new List<ShoppingListItemPreparation>();
                     }
                     //It's already been added
                     if (item.Id != checkedItem?.Id)
@@ -239,14 +256,14 @@ namespace MealsService.ShoppingList
                         item.Amount += measureGroup.Sum(mi => mi.Amount);
                     }
 
-                    item.ScheduleSlots.AddRange(measureGroup.SelectMany(mi =>
+                    item.ShoppingListItemPreparations.AddRange(measureGroup.SelectMany(mi =>
                     {
-                        var mealId = mealIngredientMap[mi.Id];
-                        var slot = mealIds.FirstOrDefault(kvp => kvp.Key == mealId);
-                        return slot.Select(g =>
-                            new ShoppingListItemScheduleSlot
+                        var recipeId = recipeIngredientMap[mi.Id];
+                        var recipePreps = preparations.Where(p => p.RecipeId == recipeId);
+                        return recipePreps.Select(g =>
+                            new ShoppingListItemPreparation
                             {
-                                ScheduleSlotId = g.Id
+                                PreparationId = g.Id
                             });
                     }));
                 }

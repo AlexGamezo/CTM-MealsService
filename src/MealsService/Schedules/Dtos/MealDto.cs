@@ -1,8 +1,8 @@
-﻿using MealsService.Models;
+﻿using MealsService.Schedules.Data;
 
 namespace MealsService.Responses.Schedules
 {
-    public class ScheduleSlotDto
+    public class MealDto
     {
         public int Id { get; set; }
         public string MealType { get; set; }

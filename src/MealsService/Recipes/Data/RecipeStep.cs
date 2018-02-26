@@ -11,7 +11,7 @@ namespace MealsService.Recipes.Data
         public int Id { get; set; }
 
         [IgnoreDataMember]
-        public int MealId { get; set; }
+        public int RecipeId { get; set; }
         public string Text { get; set; }
         public int Order { get; set; }
 
@@ -19,7 +19,7 @@ namespace MealsService.Recipes.Data
         /// Relationships
         /// </summary>
         [IgnoreDataMember]
-        public Meal Meal { get; set; }
+        public Recipe Recipe { get; set; }
 
     }
 }

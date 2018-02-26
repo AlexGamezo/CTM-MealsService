@@ -13,7 +13,7 @@ namespace MealsService.Diets.Data
     public class MenuPreference
     {
         private string _mealTypesList;
-        private List<Meal.Type> _mealTypes;
+        private List<MealType> _mealTypes;
 
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
@@ -25,16 +25,16 @@ namespace MealsService.Diets.Data
         public int CurrentDietTypeId { get; set; }
 
         [JsonConverter(typeof(StringEnumConverter))]
-        public MealStyle MealStyle { get; set; }
+        public RecipeStyle RecipeStyle { get; set; }
 
         [JsonProperty(ItemConverterType = typeof(StringEnumConverter))]
         [NotMapped]
-        public List<Meal.Type> MealTypes {
+        public List<MealType> MealTypes {
             get
             {
                 if (_mealTypes == null && !string.IsNullOrEmpty(_mealTypesList))
                 {
-                    _mealTypes = _mealTypesList.Split(',').Select(t => (Meal.Type)int.Parse(t)).ToList();
+                    _mealTypes = _mealTypesList.Split(',').Select(t => (MealType)int.Parse(t)).ToList();
                 }
                 return _mealTypes;
             }
@@ -52,7 +52,7 @@ namespace MealsService.Diets.Data
             set
             {
                 _mealTypesList = value;
-                _mealTypes = value.Split(',').Select(t => (Meal.Type) int.Parse(t)).ToList();
+                _mealTypes = value.Split(',').Select(t => (MealType) int.Parse(t)).ToList();
             }
         }
         
@@ -61,7 +61,7 @@ namespace MealsService.Diets.Data
 
     }
 
-    public enum MealStyle
+    public enum RecipeStyle
     {
         CheapNQuick,
         Healthy,

@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace MealsService.Responses.Schedules
@@ -14,6 +13,6 @@ namespace MealsService.Responses.Schedules
         public int DietTypeId { get; set; }
 
         public bool IsChallenge { get; set; }
-        public List<ScheduleSlotDto> ScheduleSlots { get; set; }
+        public List<MealDto> Meals { get; set; }
     }
 }

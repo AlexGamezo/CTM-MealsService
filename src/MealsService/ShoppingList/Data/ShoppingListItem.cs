@@ -30,6 +30,6 @@ namespace MealsService.ShoppingList.Data
         /// </summary>
         public Ingredient Ingredient { get; set; }
         public MeasureType MeasureType { get; set; } 
-        public List<ShoppingListItemScheduleSlot> ScheduleSlots { get; set; }
+        public List<ShoppingListItemPreparation> ShoppingListItemPreparations { get; set; }
     }
 }

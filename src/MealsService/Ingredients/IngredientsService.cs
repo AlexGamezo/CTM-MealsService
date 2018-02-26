@@ -207,7 +207,7 @@ namespace MealsService.Ingredients
                 return false;
             }
 
-            if (_dbContext.MealIngredients.Any(mi => mi.IngredientId == id))
+            if (_dbContext.RecipeIngredients.Any(mi => mi.IngredientId == id))
             {
                 return false;
             }

@@ -6,7 +6,7 @@ namespace MealsService.Recipes.Dtos
 {
     public class RandomRecipeRequest
     {
-        public Meal.Type MealType { get; set; }
+        public MealType MealType { get; set; }
         public int DietTypeId { get; set; }
 
         public List<string> ExcludeTags { get; set; }

@@ -8,14 +8,14 @@ using MealsService.Ingredients.Data;
 namespace MealsService.Recipes.Data
 {
     /// <summary>
-    /// Link table associating a Meal with an Ingredient
+    /// Link table associating a Recipe with an Ingredient
     /// </summary>
-    public class MealIngredient
+    public class RecipeIngredient
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
-        public int MealId { get; set; }
+        public int RecipeId { get; set; }
         public int IngredientId { get; set; }
         public float Amount { get; set; }
         public string AmountType { get; set; }
@@ -25,7 +25,7 @@ namespace MealsService.Recipes.Data
         /// Relationships
         /// </summary>
         [IgnoreDataMember]
-        public Meal Meal { get; set; }
+        public Recipe Recipe { get; set; }
         public Ingredient Ingredient { get; set; }
         public MeasureType MeasureType { get; set; }
     }

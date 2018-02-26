@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 
 using MealsService.Recipes.Data;
 
-namespace MealsService.Models
+namespace MealsService.Schedules.Data
 {
     public enum ConfirmStatus
     {
@@ -15,25 +15,30 @@ namespace MealsService.Models
 
     /// <summary>
     /// Individual slot for a given schedule day
-    /// * HasOne Meal
+    /// * HasOne Recipe
     /// </summary>
-    public class ScheduleSlot
+    public class Meal
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
         public int ScheduleDayId { get; set; }
-        public int MealId { get; set; }
-        public Meal.Type Type { get; set; }
+        public int PreparationId { get; set; }
+        public int RecipeId { get; set; }
+        public MealType Type { get; set; }
         public ConfirmStatus ConfirmStatus { get; set; }
         public bool IsChallenge { get; set; }
-
+        public int Servings { get; set; }
+        public bool IsLeftovers { get; set; }
+        
         /// <summary>
         /// Relationships
         /// </summary>
         
         [IgnoreDataMember]
         public ScheduleDay ScheduleDay { get; set; }
-        public Meal Meal { get; set; }
+        public Recipe Recipe { get; set; }
+
+        public Preparation Preparation { get; set; }
     }
 }
