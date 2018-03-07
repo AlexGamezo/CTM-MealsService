@@ -47,6 +47,38 @@ namespace MealsService.Diets.Data
                 .FirstOrDefault(d => d.UserId == userId && d.NumTargetDays == targetDays);
         }
 
+        public void UpdatePrepPlan(PrepPlan plan, List<PrepPlanGenerator> removedGenerators, List<PrepPlanConsumer> removedConsumers)
+        {
+            if (removedConsumers != null && removedConsumers.Any())
+            {
+                _context.PrepPlanConsumers.RemoveRange(removedConsumers);
+            }
+            if (removedGenerators != null && removedGenerators.Any())
+            {
+                _context.PrepPlanGenerators.RemoveRange(removedGenerators);
+            }
+
+            if (plan != null)
+            {
+                if (plan.Id > 0 )
+                {
+                    _context.PrepPlans.Update(plan);
+                }
+                else
+                {
+                    _context.PrepPlans.Add(plan);
+                }
+            }
+
+            _context.SaveChanges();
+        }
+
+        public void RemoveGenerators(List<PrepPlanConsumer> consumers)
+        {
+            _context.PrepPlanConsumers.RemoveRange(consumers);
+            _context.SaveChanges();
+        }
+
         public List<ChangeDay> GetChangeDays(int userId, int targetDays)
         {
             return _context.ChangeDays.Where(d => d.UserId == userId && d.TargetDays == targetDays).ToList();

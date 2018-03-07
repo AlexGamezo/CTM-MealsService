@@ -37,7 +37,8 @@ namespace MealsService.Diets
                 return Json(new DietDto
                 { 
                     Preferences = menuPreference,
-                    Goals = dietGoals
+                    Goals = dietGoals,
+                    PrepPlanDays = DietService.GetPrepPlanDtos(userId, DateTime.UtcNow)
                 });
             }
             else
@@ -57,6 +58,11 @@ namespace MealsService.Diets
                 if (diet.Goals != null)
                 {
                     DietService.UpdateDietGoals(userId, diet.Goals);
+                }
+
+                if (diet.PrepPlanDays != null)
+                {
+                    DietService.UpdatePrepPlanDays(userId, diet.PrepPlanDays);
                 }
 
                 return Json(new SuccessResponse(true));

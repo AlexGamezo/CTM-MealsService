@@ -420,6 +420,7 @@ namespace MealsService.Services
                             RecipeId = recipe.Id,
                             Type = consumer.MealType,
                             Servings = consumer.NumServings,
+                            IsLeftovers = consumer.DayOfWeek != generator.DayOfWeek || consumer.MealType != generator.MealType
                         };
 
                         consumeDay.Meals.Add(meal);
@@ -470,9 +471,11 @@ namespace MealsService.Services
                 Id = meal.Id,
                 MealType = meal.Type.ToString(),
                 RecipeId = meal.RecipeId,
+                PreparationId = meal.PreparationId,
                 Confirmed = meal.ConfirmStatus,
                 ScheduleDayId = meal.ScheduleDayId,
-                IsChallenge = meal.IsChallenge
+                IsChallenge = meal.IsChallenge,
+                IsLeftovers = meal.IsLeftovers
             };
         }
 

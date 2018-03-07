@@ -4,6 +4,7 @@ using System.Linq;
 
 using MealsService.Diets.Dtos;
 using MealsService.Diets.Data;
+using MealsService.Recipes.Data;
 
 namespace MealsService.Diets
 {
@@ -175,42 +176,210 @@ namespace MealsService.Diets
 
             if (prepPlan == null)
             {
-                var changeDays = GetChangeDays(userId, when);
-                var prefs = GetPreferences(userId);
-                prepPlan = new PrepPlan
-                {
-                    NumTargetDays = primaryGoal.Current,
-                    Generators = new List<PrepPlanGenerator>(),
-                    Consumers = new List<PrepPlanConsumer>()
-                };
+                var prevPlan = _repository.GetPrepPlan(userId, primaryGoal.Current - 1);
 
-                foreach(var day in changeDays)
+                if (prevPlan != null)
                 {
-                    foreach (var mealType in prefs.MealTypes)
+                    prepPlan = prevPlan;
+                }
+                else
+                {
+                    prepPlan = new PrepPlan
                     {
-                        var generator = new PrepPlanGenerator
+                        UserId = userId,
+                        NumTargetDays = primaryGoal.Current,
+                        Generators = new List<PrepPlanGenerator>(),
+                        Consumers = new List<PrepPlanConsumer>()
+                    };
+                }
+            }
+
+            var changeDays = GetChangeDays(userId, when);
+            var prefs = GetPreferences(userId);
+
+            var daysPlanned = prepPlan.Consumers.Select(c => c.DayOfWeek).Distinct().ToList();
+            var missingDayCount = primaryGoal.Current - daysPlanned.Count();
+
+            for (var i = 0; i < missingDayCount; i++)
+            {
+                var addedDay = changeDays.Except(daysPlanned).First();
+                daysPlanned.Add(addedDay);
+
+                foreach (var mealType in prefs.MealTypes)
+                {
+                    var generator = new PrepPlanGenerator
+                    {
+                        DayOfWeek = addedDay,
+                        MealType = mealType,
+                        NumServings = 2,
+                        Consumers = new List<PrepPlanConsumer>()
+                    };
+
+                    generator.Consumers.Add(
+                        new PrepPlanConsumer
                         {
-                            DayOfWeek = day,
+                            DayOfWeek = addedDay,
                             MealType = mealType,
                             NumServings = 2,
-                            Consumers = new List<PrepPlanConsumer>
-                            {
-                                new PrepPlanConsumer
-                                {
-                                    DayOfWeek = day,
-                                    MealType = mealType,
-                                    NumServings = 2
-                                }
-                            }
-                        };
+                            Generator = generator
+                        });
 
-                        prepPlan.Generators.Add(generator);
-                        prepPlan.Consumers.AddRange(generator.Consumers);
-                    }
+                    prepPlan.Generators.Add(generator);
+                    prepPlan.Consumers.AddRange(generator.Consumers);
                 }
             }
 
             return prepPlan;
+        }
+
+        public List<PrepPlanDay> GetPrepPlanDtos(int userId, DateTime when)
+        {
+            var prepPlan = GetPrepPlan(userId, when);
+
+            var consumerDays = prepPlan.Consumers.Select(c => c.DayOfWeek).Distinct().OrderBy(d => d).ToList();
+            var prepPlanDays = new List<PrepPlanDay>();
+
+            for (var i = 0; i < consumerDays.Count(); i++)
+            {
+                var day = new PrepPlanDay
+                {
+                    DayOfWeek = consumerDays[i],
+                    Meals = new List<PrepPlanMeal>()
+                };
+
+                var dayConsumers = prepPlan.Consumers.Where(c => c.DayOfWeek == day.DayOfWeek).ToList();
+
+                for (var j = 0; j < dayConsumers.Count; j++)
+                {
+                    var generator = dayConsumers[j].Generator ?? prepPlan.Generators.FirstOrDefault(g => g.Id == dayConsumers[j].GeneratorId);
+                    var meal = new PrepPlanMeal
+                    {
+                        MealType = dayConsumers[j].MealType,
+                        NumServings = dayConsumers[j].NumServings,
+                        PreppedDay = generator.DayOfWeek,
+                        PreppedMeal = generator.MealType
+                    };
+                    day.Meals.Add(meal);
+                }
+
+                day.Meals = day.Meals.OrderBy(m => m.MealType).ToList();
+                prepPlanDays.Add(day);
+            }
+
+            return prepPlanDays;
+        }
+
+        public void UpdatePrepPlanDays(int userId, List<PrepPlanDay> days)
+        {
+            var newGenerators = FromDtos(days);
+
+            var plan = GetPrepPlan(userId, DateTime.UtcNow);
+            var removedGenerators = new List<PrepPlanGenerator>();
+            var removedConsumers = new List<PrepPlanConsumer>();
+
+            for (var i = 0; i < newGenerators.Count; i++)
+            {
+                if (plan.Generators.Count > i)
+                {
+                    plan.Generators[i].DayOfWeek = newGenerators[i].DayOfWeek;
+                    plan.Generators[i].MealType = newGenerators[i].MealType;
+                    plan.Generators[i].NumServings = newGenerators[i].NumServings;
+                }
+                else
+                {
+                    plan.Generators.Add(new PrepPlanGenerator
+                    {
+                        DayOfWeek = newGenerators[i].DayOfWeek,
+                        MealType = newGenerators[i].MealType,
+                        NumServings = newGenerators[i].NumServings,
+                        Consumers = new List<PrepPlanConsumer>()
+                    });
+                }
+
+                for (var j = 0; j < newGenerators[i].Consumers.Count; j++)
+                {
+                    if (plan.Generators[i].Consumers.Count > j)
+                    {
+                        plan.Generators[i].Consumers[j].MealType = newGenerators[i].Consumers[j].MealType;
+                        plan.Generators[i].Consumers[j].DayOfWeek = newGenerators[i].Consumers[j].DayOfWeek;
+                        plan.Generators[i].Consumers[j].NumServings = newGenerators[i].Consumers[j].NumServings;
+                    }
+                    else
+                    {
+                        plan.Generators[i].Consumers.Add(new PrepPlanConsumer
+                        {
+                            MealType = newGenerators[i].Consumers[j].MealType,
+                            DayOfWeek = newGenerators[i].Consumers[j].DayOfWeek,
+                            NumServings = newGenerators[i].Consumers[j].NumServings
+                        });
+                    }
+                }
+
+                if (newGenerators[i].Consumers.Count < plan.Generators[i].Consumers.Count)
+                {
+                    var diff = plan.Generators[i].Consumers.Count - newGenerators[i].Consumers.Count;
+                    removedConsumers.AddRange(plan.Generators[i].Consumers.TakeLast(diff).Where(c => c.Id > 0));
+                    plan.Generators[i].Consumers.RemoveRange(newGenerators[i].Consumers.Count, diff);
+                }
+            }
+
+            if (newGenerators.Count < plan.Generators.Count)
+            {
+                var diff = plan.Generators.Count - newGenerators.Count;
+                removedGenerators.AddRange(plan.Generators.TakeLast(diff).Where(g => g.Id > 0));
+                plan.Generators.RemoveRange(newGenerators.Count, diff);
+            }
+
+            plan.Consumers = plan.Generators.SelectMany(g => g.Consumers).ToList();
+
+            _repository.UpdatePrepPlan(plan, removedGenerators, removedConsumers);
+        }
+
+        public List<PrepPlanGenerator> FromDtos(List<PrepPlanDay> prepPlanDays)
+        {
+            var generators = new Dictionary<int, Dictionary<MealType, PrepPlanGenerator>>();
+
+            foreach (var day in prepPlanDays)
+            {
+                foreach (var meal in day.Meals)
+                {
+                    if (meal.PreppedDay == day.DayOfWeek && meal.PreppedMeal == meal.MealType)
+                    {
+                        var generator = new PrepPlanGenerator
+                        {
+                            DayOfWeek = day.DayOfWeek,
+                            MealType = meal.MealType,
+                            NumServings = 0,
+                            Consumers = new List<PrepPlanConsumer>()
+                        };
+
+                        if (!generators.ContainsKey(day.DayOfWeek))
+                        {
+                            generators.Add(day.DayOfWeek, new Dictionary<MealType, PrepPlanGenerator>());
+                        }
+                        if (!generators[day.DayOfWeek].ContainsKey(meal.MealType))
+                        {
+                            generators[day.DayOfWeek].Add(meal.MealType, generator);
+                        }
+                        else
+                        {
+                            throw new Exception("Should only be one meal per MealType");
+                        }
+                    }
+
+                    var consumer = new PrepPlanConsumer
+                    {
+                        DayOfWeek = day.DayOfWeek,
+                        MealType = meal.MealType,
+                        NumServings = meal.NumServings
+                    };
+                    generators[meal.PreppedDay][meal.PreppedMeal].Consumers.Add(consumer);
+                    generators[meal.PreppedDay][meal.PreppedMeal].NumServings =
+                        generators[meal.PreppedDay][meal.PreppedMeal].Consumers.Sum(c => c.NumServings);
+                }
+            }
+
+            return generators.SelectMany(d => d.Value.Values).ToList();
         }
 
         public void SetChangeDays(int userId, DateTime when, List<int> changeDays)
@@ -249,6 +418,27 @@ namespace MealsService.Diets
                 RecipeStyle = model.RecipeStyle,
                 MealTypes = model.MealTypes,
                 CurrentDietId = model.CurrentDietTypeId
+            };
+        }
+
+        protected PrepPlanGeneratorDto ToDto(PrepPlanGenerator generator)
+        {
+            return new PrepPlanGeneratorDto
+            {
+                DayOfWeek = generator.DayOfWeek,
+                MealType = generator.MealType,
+                NumServings = generator.NumServings,
+                Consumers = generator.Consumers.Select(c => ToDto(c)).ToList()
+            };
+        }
+
+        protected PrepPlanConsumerDto ToDto(PrepPlanConsumer consumer)
+        {
+            return new PrepPlanConsumerDto
+            {
+                DayOfWeek = consumer.DayOfWeek,
+                MealType = consumer.MealType,
+                NumServings = consumer.NumServings
             };
         }
     }

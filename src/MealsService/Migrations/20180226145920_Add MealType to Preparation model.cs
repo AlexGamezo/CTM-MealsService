@@ -9,6 +9,11 @@ namespace MealsService.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.RenameColumn(
+                name: "MealId",
+                newName: "PreparationId",
+                table: "ShoppingListeItemMeal");
+
             migrationBuilder.RenameTable(
                 name: "ShoppingListItemMeal", newName: "ShoppingListItemPreparation");
 
@@ -21,6 +26,11 @@ namespace MealsService.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.RenameColumn(
+                name: "PreparationId",
+                newName: "MealId",
+                table: "ShoppingListItemPreparation");
+
             migrationBuilder.RenameTable(
                 name: "ShoppingListItemPreparation", newName:"ShoppingListItemMeal");
 

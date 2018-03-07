@@ -8,5 +8,7 @@ namespace MealsService.Diets.Dtos
         public MenuPreferencesDto Preferences { get; set; }
 
         public List<DietGoalDto> Goals { get; set; }
+
+        public List<PrepPlanDay> PrepPlanDays { get; set; }
     }
 }

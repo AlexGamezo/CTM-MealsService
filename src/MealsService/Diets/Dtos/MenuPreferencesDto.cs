@@ -16,6 +16,8 @@ namespace MealsService.Diets.Dtos
         [JsonProperty(ItemConverterType = typeof(StringEnumConverter))]
         public List<MealType> MealTypes { get; set; }
 
+        public List<PrepPlanGeneratorDto> PrepPlanGenerators { get; set; }
+
         public int CurrentDietId { get; set; }
     }
 }
