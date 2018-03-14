@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MealsService.Common.Errors;
 using MealsService.Requests;
 using MealsService.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -33,10 +34,7 @@ namespace MealsService.Ingredients
         {
             var ingredients = _ingredientsService.GetIngredients(search);
 
-            return Json(new
-            {
-                ingredients
-            });
+            return Json(new { ingredients });
         }
 
         [HttpGet]
@@ -45,10 +43,7 @@ namespace MealsService.Ingredients
         {
             var ingredient = _ingredientsService.GetIngredient(id);
 
-            return Json(new
-            {
-                ingredient
-            });
+            return Json(new { ingredient });
         }
 
         [HttpGet]
@@ -63,10 +58,7 @@ namespace MealsService.Ingredients
 
             var ingredients = _ingredientsService.GetIngredients(idList);
 
-            return Json(new
-            {
-                ingredients
-            });
+            return Json(new { ingredients });
         }
 
         [Authorize]
@@ -104,8 +96,7 @@ namespace MealsService.Ingredients
 
             if (!isAdmin)
             {
-                HttpContext.Response.StatusCode = 403;
-                return Json(Errors.Authorization.UnauthorizedRequest);
+                throw StandardErrors.UnauthorizedRequest;
             }
 
             var imageFile = HttpContext.Request.Form.Files.FirstOrDefault();
@@ -118,18 +109,15 @@ namespace MealsService.Ingredients
 
             if (imageFile == null || imageFile.Length == 0)
             {
-                HttpContext.Response.StatusCode = 400;
-                return Json(Errors.FileUploads.NoFilesUploaded);
+                throw FileUploads.NoFilesUploaded;
             }
             if (!allowedContentTypes.Contains(imageFile.ContentType))
             {
-                HttpContext.Response.StatusCode = 400;
-                return Json(Errors.FileUploads.InvalidFileTypeUploaded);
+                throw FileUploads.InvalidFileTypeUploaded;
             }
             if (!await _ingredientsService.UpdateIngredientImage(ingredientId, imageFile))
             {
-                HttpContext.Response.StatusCode = 400;
-                return Json(Errors.Recipes.RecipeUpdateFailed);
+                throw Common.Errors.Recipes.RecipeUpdateFailed;
             }
 
             return Json(new SuccessResponse());

@@ -475,7 +475,8 @@ namespace MealsService.Services
                 Confirmed = meal.ConfirmStatus,
                 ScheduleDayId = meal.ScheduleDayId,
                 IsChallenge = meal.IsChallenge,
-                IsLeftovers = meal.IsLeftovers
+                IsLeftovers = meal.IsLeftovers,
+                NumServings = meal.Servings
             };
         }
 

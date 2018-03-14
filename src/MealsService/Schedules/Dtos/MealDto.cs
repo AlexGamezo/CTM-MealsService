@@ -12,5 +12,6 @@ namespace MealsService.Responses.Schedules
         public int ScheduleDayId { get; set; }
         public bool IsChallenge { get; set; }
         public bool IsLeftovers { get; set; }
+        public int NumServings { get; set; }
     }
 }
