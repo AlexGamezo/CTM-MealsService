@@ -3,6 +3,7 @@ using MealsService;
 using MealsService.Diets.Data;
 using MealsService.Recipes.Data;
 using MealsService.Schedules.Data;
+using MealsService.Stats.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -541,6 +542,50 @@ namespace MealsService.Migrations
                     b.HasIndex("ShoppingListItemId");
 
                     b.ToTable("ShoppingListItemPreparation");
+                });
+
+            modelBuilder.Entity("MealsService.Stats.Data.ImpactStatement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Alt");
+
+                    b.Property<int>("ImpactType");
+
+                    b.Property<string>("ParametersRaw");
+
+                    b.Property<string>("RefUrl");
+
+                    b.Property<string>("Text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ImpactStatements");
+                });
+
+            modelBuilder.Entity("MealsService.Stats.Data.StatSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("Challenges");
+
+                    b.Property<int>("Goal");
+
+                    b.Property<int>("MealsPerDay");
+
+                    b.Property<int>("Streak");
+
+                    b.Property<int>("UserId");
+
+                    b.Property<int>("Value");
+
+                    b.Property<DateTime>("Week");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StatSnapshots");
                 });
 
             modelBuilder.Entity("MealsService.Tags.Data.Tag", b =>

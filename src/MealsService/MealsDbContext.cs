@@ -5,6 +5,7 @@ using MealsService.Ingredients.Data;
 using MealsService.Recipes.Data;
 using MealsService.Schedules.Data;
 using MealsService.ShoppingList.Data;
+using MealsService.Stats.Data;
 using MealsService.Tags.Data;
 
 namespace MealsService
@@ -28,6 +29,9 @@ namespace MealsService
         public DbSet<Recipe> Recipes { get; set; }
         public DbSet<RecipeStep> RecipeSteps { get; set; }
         public DbSet<RecipeVote> RecipeVotes { get; set; }
+
+        public DbSet<ImpactStatement> ImpactStatements { get; set; }
+        public DbSet<StatSnapshot> StatSnapshots { get; set; }
 
 
         #region User-Specific

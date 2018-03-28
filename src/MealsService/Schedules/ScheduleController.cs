@@ -11,6 +11,7 @@ using MealsService.Responses;
 using MealsService.Services;
 using MealsService.Recipes;
 using MealsService.Requests;
+using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 
 namespace MealsService.Controllers
@@ -161,6 +162,31 @@ namespace MealsService.Controllers
             }
 
             return Get(userId, dateString);
+        }
+
+        [Authorize]
+        [Route("me/nextmeal"), HttpGet]
+        [Route("{userId}/nextmeal"), HttpGet]
+        public IActionResult NextMeal(int userId)
+        {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+
+            var schedule = _scheduleService.GetSchedule(userId, DateTime.UtcNow.GetWeekStart());
+
+            if (!schedule.Any(d => d.Meals.Any(m => m.ConfirmStatus == ConfirmStatus.UNSET)))
+            {
+                schedule = _scheduleService.GetSchedule(userId, DateTime.UtcNow.GetWeekStart().AddDays(7));
+            }
+
+            var meal = _scheduleService.ToMealDto(schedule.SelectMany(d => d.Meals).First(m => m.ConfirmStatus == ConfirmStatus.UNSET));
+            
+            return Json(new
+            {
+                meal,
+            });
         }
     }
 }

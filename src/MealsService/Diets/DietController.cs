@@ -1,5 +1,6 @@
 ﻿using System;
 using MealsService.Common;
+using MealsService.Common.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,54 +30,46 @@ namespace MealsService.Diets
         [Route("{userId}"), HttpGet]
         public IActionResult Get(int userId)
         {
-            if (VerifyPermission(userId))
-            {
-                var dietGoals = DietService.GetDietGoalsByUserId(userId, DateTime.UtcNow);
+            VerifyPermission(userId);
 
-                var menuPreference = DietService.GetPreferences(userId);
-                return Json(new DietDto
-                { 
-                    Preferences = menuPreference,
-                    Goals = dietGoals,
-                    PrepPlanDays = DietService.GetPrepPlanDtos(userId, DateTime.UtcNow)
-                });
-            }
-            else
-            {
-                this.Response.StatusCode = 403;
-                return Json(new ErrorResponse("You are not logged in as the requested user.", 403));
-            }
+            var dietGoals = DietService.GetDietGoalsByUserId(userId, DateTime.UtcNow);
+
+            var menuPreference = DietService.GetPreferences(userId);
+            return Json(new DietDto
+            { 
+                Preferences = menuPreference,
+                Goals = dietGoals,
+                PrepPlanDays = DietService.GetPrepPlanDtos(userId, DateTime.UtcNow)
+            });
         }
 
         [Authorize]
         [Route("{userId}"), HttpPut]
         public IActionResult Set(int userId, [FromBody] DietDto diet)
         {
-            if (VerifyPermission(userId))
+            VerifyPermission(userId);
+            DietService.UpdatePreferences(userId, diet.Preferences);
+            if (diet.Goals != null)
             {
-                DietService.UpdatePreferences(userId, diet.Preferences);
-                if (diet.Goals != null)
-                {
-                    DietService.UpdateDietGoals(userId, diet.Goals);
-                }
-
-                if (diet.PrepPlanDays != null)
-                {
-                    DietService.UpdatePrepPlanDays(userId, diet.PrepPlanDays);
-                }
-
-                return Json(new SuccessResponse(true));
+                DietService.UpdateDietGoals(userId, diet.Goals);
             }
-            else
+
+            if (diet.PrepPlanDays != null)
             {
-                this.Response.StatusCode = 403;
-                return Json(new ErrorResponse("You are not logged in as the requested user.", 403));
+                DietService.UpdatePrepPlanDays(userId, diet.PrepPlanDays);
             }
+
+            return Json(new SuccessResponse(true));
         }
 
         protected bool VerifyPermission(int userId)
         {
-            return AuthorizedUser == userId || IsAdmin;
+            if (AuthorizedUser != userId && !IsAdmin)
+            {
+                throw StandardErrors.ForbiddenRequest;
+            }
+
+            return true;
         }
     }
 }

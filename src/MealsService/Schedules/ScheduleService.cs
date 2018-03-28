@@ -10,6 +10,7 @@ using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
 using MealsService.Schedules.Data;
+using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
 
 namespace MealsService.Services
@@ -39,12 +40,16 @@ namespace MealsService.Services
             {
                 end = start.AddDays(6);
             }
-            
+
+            var meals = _dbContext.Meals.Where(m =>
+                m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start && m.ScheduleDay.Date <= end.Value);
+            meals.Load();
+
+            var preparations = _dbContext.Preparations.Where(p => p.ScheduleDay.UserId == userId && p.ScheduleDay.Date >= start && p.ScheduleDay.Date <= end.Value);
+            preparations.Load();
+
             var schedule = _dbContext.ScheduleDays
-                .Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)
-                .Include(d => d.Preparations)
-                    .ThenInclude(p => p.Meals)
-                .Include(d => d.Meals)
+                .Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)                                
                 .OrderBy(d => d.Date)
                 .ToList();
 
@@ -108,8 +113,7 @@ namespace MealsService.Services
             var oldDay = currentMeal.ScheduleDay;
             oldDay.DietTypeId = 0;
 
-            currentMeal.ScheduleDay = null;
-            currentMeal.ScheduleDayId = targetDay.Id;
+            currentMeal.ScheduleDay = targetDay;
             _dbContext.SaveChanges();
 
             return true;
@@ -151,14 +155,13 @@ namespace MealsService.Services
             foreach (var meal in oldMeals)
             {
                 meal.ScheduleDay = targetDay;
-                meal.ScheduleDayId = targetDay.Id;
             }
 
             //Find the earlist meal for this preparation, that will be the new preparation, if one(s) being moved are to after it
             var targetPrepDay = schedule.Where(d => currentPrep.Meals.Select(m => m.ScheduleDayId).Contains(d.Id))
                 .OrderBy(d => d.Date).First();
 
-            currentPrep.ScheduleDayId = targetDay.Date < targetPrepDay.Date ? targetDay.Id : targetPrepDay.Id;
+            currentPrep.ScheduleDay = targetDay.Date < targetPrepDay.Date ? targetDay : targetPrepDay;
 
             _dbContext.SaveChanges();
 
@@ -238,7 +241,7 @@ namespace MealsService.Services
             _dbContext.Preparations.RemoveRange(scheduleDay.Preparations);
             _dbContext.Meals.RemoveRange(scheduleDay.Meals);
             scheduleDay.Meals = new List<Meal>();
-            scheduleDay.Preparations= new List<Preparation>();
+            scheduleDay.Preparations = new List<Preparation>();
             _dbContext.SaveChanges();
 
             return ToScheduleDayDto(scheduleDay);
@@ -471,12 +474,25 @@ namespace MealsService.Services
                 Id = meal.Id,
                 MealType = meal.Type.ToString(),
                 RecipeId = meal.RecipeId,
-                PreparationId = meal.PreparationId,
+                Preparation = meal.Preparation != null ? ToPreparationDto(meal.Preparation) : null,
                 Confirmed = meal.ConfirmStatus,
                 ScheduleDayId = meal.ScheduleDayId,
+                Date = meal.ScheduleDay.Date,
                 IsChallenge = meal.IsChallenge,
                 IsLeftovers = meal.IsLeftovers,
                 NumServings = meal.Servings
+            };
+        }
+
+        public PreparationDto ToPreparationDto(Preparation prep)
+        {
+            return new PreparationDto
+            {
+                Id = prep.Id,
+                MealType = prep.MealType,
+                RecipeId = prep.RecipeId,
+                Date = prep.ScheduleDay.Date,
+                NumServings = prep.Meals?.Sum(m => m.Servings) ?? 0
             };
         }
 

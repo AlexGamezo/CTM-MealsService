@@ -19,6 +19,7 @@ using MealsService.Ingredients;
 using MealsService.ShoppingList;
 using MealsService.Tags;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using MealsService.Stats;
 
 namespace MealsService
 {
@@ -53,6 +54,7 @@ namespace MealsService
             services.AddScoped<DietTypeService>();
             services.AddScoped<MeasureTypesService>();
             services.AddScoped<ShoppingListService>();
+            services.AddScoped<StatsService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
