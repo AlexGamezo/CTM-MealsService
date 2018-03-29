@@ -462,8 +462,8 @@ namespace MealsService.Services
                 LastModified = day.Modified,
                 DietType = day.DietType?.Name,
                 DietTypeId = day.DietTypeId,
-                IsChallenge = day.Meals.Any(s => s.IsChallenge),
-                Meals = day.Meals.Select(ToMealDto).ToList()
+                IsChallenge = day.Meals?.Any(s => s.IsChallenge) ?? false,
+                Meals = day.Meals?.Select(ToMealDto).ToList()
             };
         }
 

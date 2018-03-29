@@ -48,7 +48,7 @@ namespace MealsService.Controllers
                 .Select(_scheduleService.ToScheduleDayDto)
                 .ToList();
 
-            var recipeIds = scheduleDays.SelectMany(d => d.Meals.Select(s => s.RecipeId));
+            var recipeIds = scheduleDays.Where(d => d.Meals != null).SelectMany(d => d.Meals.Select(s => s.RecipeId));
             var recipes = _recipesService.GetRecipes(recipeIds, userId);
 
             return Json(new SuccessResponse<object>( new

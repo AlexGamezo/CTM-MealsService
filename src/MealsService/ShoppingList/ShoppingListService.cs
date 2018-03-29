@@ -62,7 +62,8 @@ namespace MealsService.ShoppingList
             ClearShoppingList(userId, weekStart);
             if (schedule.Any(d => d.Meals.Any(s => s.RecipeId > 0)))
             {
-                HandlePreparationsAdded(userId, schedule.SelectMany(d => d.Preparations).ToList(), weekStart, false);
+                var preparations = schedule.Where(d => d.Preparations != null).SelectMany(d => d.Preparations).ToList();
+                HandlePreparationsAdded(userId, preparations, weekStart, false);
             }
         }
 
