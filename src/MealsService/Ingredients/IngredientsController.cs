@@ -67,12 +67,6 @@ namespace MealsService.Ingredients
         {
             var ingredient = _ingredientsService.Create(create);
 
-            if (ingredient == null)
-            {
-                Response.StatusCode = 500;
-                return Json(new ErrorResponse("Could not create ingredient", 500));
-            }
-
             return Json(new {ingredient});
         }
 

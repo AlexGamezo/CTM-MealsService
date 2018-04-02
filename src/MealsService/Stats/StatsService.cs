@@ -48,7 +48,9 @@ namespace MealsService.Stats
             var meals = _dbContext.Meals.Where(m =>
                 m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start && m.ScheduleDay.Date < end);
 
-            var goal = meals.Count(m => !m.IsChallenge);
+            var targetDiet = _dietService.GetDietGoalsByUserId(userId, start);
+            var goal = _dietService.GetTargetForDiet(userId, targetDiet.First().TargetDietId, start);
+
             var progress = meals.Count(m => m.ConfirmStatus == ConfirmStatus.CONFIRMED_YES);
             var challengesMet = progress > goal ? progress - goal : 0;
 

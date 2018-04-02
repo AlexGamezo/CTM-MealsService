@@ -6,6 +6,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
+using MealsService.Common.Errors;
 using MealsService.Configurations;
 using MealsService.Requests;
 using MealsService.Ingredients.Data;
@@ -68,13 +69,14 @@ namespace MealsService.Ingredients
             var ingredientCategory = _dbContext.IngredientCategories
                 .FirstOrDefault(c => c.Name == request.Category);
 
-            ingredient.IngredientCategory = ingredientCategory ?? new IngredientCategory { Name = request.Category };
+            ingredient.IngredientCategory = ingredientCategory ?? new IngredientCategory {Name = request.Category};
 
             var tags = _tagsService.ListTags();
 
             ingredient.IngredientTags.AddRange(request.Tags.Select(
-                tag => new IngredientTag{
-                    Tag = tags.FirstOrDefault(t => t.Name == tag.ToLower()) ?? new Tag { Name = tag.ToLower() }
+                tag => new IngredientTag
+                {
+                    Tag = tags.FirstOrDefault(t => t.Name == tag.ToLower()) ?? new Tag {Name = tag.ToLower()}
                 }
             ));
 
@@ -92,12 +94,12 @@ namespace MealsService.Ingredients
 
             _dbContext.Ingredients.Add(ingredient);
 
-            if (_dbContext.SaveChanges() > 0)
+            if (_dbContext.SaveChanges() == 0)
             {
-                return ingredient;
+                throw StandardErrors.CouldNotCreateEntity;
             }
 
-            return null;
+            return ingredient;
         }
 
         public bool Update(UpdateIngredientRequest request)
