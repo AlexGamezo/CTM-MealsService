@@ -119,6 +119,20 @@ namespace MealsService.Diets
         {
             var dietGoal = _repository.GetDietGoals(userId).FirstOrDefault(g => g.TargetDietId == dietTypeId);
 
+            if (dietGoal == null)
+            {
+                dietGoal = new DietGoal
+                {
+                    ReductionRate = ReductionRate.Monthly,
+                    Target = 1,
+                    Current = 1,
+                    TargetDietId = 3,
+                    UserId = userId,
+                    Created = DateTime.UtcNow,
+                    Updated = DateTime.UtcNow
+                };
+            }
+
             if (!when.HasValue)
             {
                 when = DateTime.UtcNow;
