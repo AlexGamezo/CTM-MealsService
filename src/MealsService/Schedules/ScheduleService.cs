@@ -186,13 +186,39 @@ namespace MealsService.Services
             scheduleDay.DietTypeId = goal.TargetDietId;
             var preparations = new List<Preparation>();
 
+            var myVotes = _dbContext.RecipeVotes
+                .Where(v => v.UserId == userId && v.Vote != RecipeVote.VoteType.UNKNOWN)
+                .ToList();
+
+            var recipeWeights = new Dictionary<int, int>();
+
+            //TODO: Do a better job of preferring Liked/Hated recipes
+            foreach (var vote in myVotes)
+            {
+                if (!recipeWeights.ContainsKey(vote.RecipeId))
+                {
+                    recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
+                }
+            }
+
             foreach (var mealType in preference.MealTypes)
             {
+                var randomRecipeRequest = new RandomRecipeRequest
+                {
+                    DietTypeId = scheduleDay.DietTypeId,
+                    MealType = mealType,
+                };
+                
+                //TODO: preference recipes not present this week
+                //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
+                var recipe = GetRandomRecipe(randomRecipeRequest, recipeWeights);
+
                 var prep = new Preparation
                 {
                     UserId = userId,
                     ScheduleDayId = scheduleDay.Id,
                     MealType = mealType,
+                    RecipeId = recipe.Id,
                     Meals = new List<Meal>
                     {
                         new Meal
@@ -201,6 +227,9 @@ namespace MealsService.Services
                             IsChallenge = true,
                             ConfirmStatus = ConfirmStatus.UNSET,
                             Type = mealType,
+                            RecipeId = recipe.Id,
+                            IsLeftovers = false,
+                            Servings = 1
                         }
                     }
                 };
@@ -208,11 +237,6 @@ namespace MealsService.Services
             }
             _dbContext.Preparations.AddRange(preparations);
             _dbContext.SaveChanges();
-
-            foreach (var prep in preparations)
-            {
-                RegeneratePreparation(userId, prep.Id);
-            }
 
             var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
             shoppingListService.HandlePreparationsAdded(userId, preparations, date.GetWeekStart());
