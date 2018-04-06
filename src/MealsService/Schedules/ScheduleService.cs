@@ -6,12 +6,15 @@ using Microsoft.EntityFrameworkCore;
 
 using MealsService.Recipes.Data;
 using MealsService.Diets;
+using MealsService.Infrastructure;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
 using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace MealsService.Services
 {
@@ -34,29 +37,29 @@ namespace MealsService.Services
             _rand = new Random();
         }
 
-        public List<ScheduleDay> GetSchedule(int userId, DateTime start, DateTime? end = null, bool regenIfEmpty = true)
+        public List<ScheduleDay> GetSchedule(int userId, LocalDate start, LocalDate end, bool regenIfEmpty = true)
         {
-            if (!end.HasValue)
-            {
-                end = start.AddDays(6);
-            }
+            var reqContext = _serviceProvider.GetService<RequestContext>();
 
             var meals = _dbContext.Meals.Where(m =>
-                m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start && m.ScheduleDay.Date <= end.Value);
+                m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start.ToDateTimeUnspecified() && m.ScheduleDay.Date <= end.ToDateTimeUnspecified());
             meals.Load();
 
-            var preparations = _dbContext.Preparations.Where(p => p.ScheduleDay.UserId == userId && p.ScheduleDay.Date >= start && p.ScheduleDay.Date <= end.Value);
+            var preparations = _dbContext.Preparations.Where(p => p.ScheduleDay.UserId == userId && p.ScheduleDay.Date >= start.ToDateTimeUnspecified() && p.ScheduleDay.Date <= end.ToDateTimeUnspecified());
             preparations.Load();
 
             var schedule = _dbContext.ScheduleDays
-                .Where(d => d.UserId == userId && d.Date >= start && d.Date <= end.Value)                                
+                .Where(d => d.UserId == userId && d.Date >= start.ToDateTimeUnspecified() && d.Date <= end.ToDateTimeUnspecified())                                
                 .OrderBy(d => d.Date)
                 .ToList();
 
             //If no schedule currently and not a past week, generate and recall method
-            if (schedule.Count == 0 && end >= DateTime.UtcNow.Date && regenIfEmpty)
+            var curInstant = SystemClock.Instance.GetCurrentInstant();
+            var endInstant = end.AtStartOfDayInZone(reqContext.Dtz).ToInstant();
+
+            if (schedule.Count == 0 && endInstant >= curInstant  && regenIfEmpty)
             {
-                GenerateSchedule(userId, start, end.GetValueOrDefault(start.AddDays(6)), new GenerateScheduleRequest());
+                GenerateSchedule(userId, start, end, new GenerateScheduleRequest());
                 return GetSchedule(userId, start, end, false);
             }
 
@@ -89,9 +92,10 @@ namespace MealsService.Services
             }
 
 
-            var weekStart = currentMeal.ScheduleDay.Date.GetWeekStart();
+            var weekStart = currentMeal.ScheduleDay.NodaDate.GetWeekStart();
+            var weekEnd = weekStart.PlusDays(6);
 
-            var schedule = GetSchedule(userId, weekStart);
+            var schedule = GetSchedule(userId, weekStart, weekEnd);
             
             var targetDay = schedule.FirstOrDefault(d => dayId != currentMeal.ScheduleDayId && d.Id == dayId);
             if (targetDay == null || targetDay.DietTypeId != 0)
@@ -137,9 +141,10 @@ namespace MealsService.Services
                 //TODO: throw appropriate exception
             }
 
-            var weekStart = currentPrep.ScheduleDay.Date.GetWeekStart();
+            var weekStart = currentPrep.ScheduleDay.NodaDate.GetWeekStart();
+            var weekEnd = weekStart.PlusDays(6);
 
-            var schedule = GetSchedule(userId, weekStart);
+            var schedule = GetSchedule(userId, weekStart, weekEnd);
             var targetDay = schedule.FirstOrDefault(d => dayId != currentPrep.ScheduleDayId && d.Id == dayId);
             //Prevent collapsing days
             if (targetDay == null || targetDay.DietTypeId != 0)
@@ -157,7 +162,7 @@ namespace MealsService.Services
                 meal.ScheduleDay = targetDay;
             }
 
-            //Find the earlist meal for this preparation, that will be the new preparation, if one(s) being moved are to after it
+            //Find the earliest meal for this preparation, that will be the new preparation, if one(s) being moved are to after it
             var targetPrepDay = schedule.Where(d => currentPrep.Meals.Select(m => m.ScheduleDayId).Contains(d.Id))
                 .OrderBy(d => d.Date).First();
 
@@ -168,11 +173,11 @@ namespace MealsService.Services
             return true;
         }
 
-        public ScheduleDayDto AddChallengeDay(int userId, DateTime date)
+        public ScheduleDayDto AddChallengeDay(int userId, LocalDate date)
         {
             var scheduleDay = _dbContext.ScheduleDays
                 .Include(d => d.Meals)
-                .FirstOrDefault(s => s.UserId == userId && s.Date == date);
+                .FirstOrDefault(s => s.UserId == userId && s.Date == date.ToDateTimeUnspecified());
 
             if (scheduleDay == null || !(scheduleDay.Meals == null || !scheduleDay.Meals.Any()))
             {
@@ -244,13 +249,13 @@ namespace MealsService.Services
             return ToScheduleDayDto(scheduleDay);
         }
 
-        public ScheduleDayDto RemoveChallengeDay(int userId, DateTime date)
+        public ScheduleDayDto RemoveChallengeDay(int userId, LocalDate date)
         {
             var scheduleDay = _dbContext.ScheduleDays
                 .Include(d => d.Preparations)
                     .ThenInclude(p => p.Meals)
                 .Include(d => d.Meals)
-                .FirstOrDefault(s => s.UserId == userId && s.Date == date);
+                .FirstOrDefault(s => s.UserId == userId && s.Date == date.ToDateTimeUnspecified());
 
             if (scheduleDay?.Meals == null || !scheduleDay.Meals.Any() ||
                 scheduleDay.DietTypeId == 0 || scheduleDay.Meals.Any(s => !s.IsChallenge))
@@ -290,7 +295,7 @@ namespace MealsService.Services
                 //TODO: Throw appropriate exception
             }
 
-            var weekBeginning = preparation.ScheduleDay.Date.GetWeekStart();
+            var weekBeginning = preparation.ScheduleDay.NodaDate.GetWeekStart();
             if (updateShoppingList && preparation.RecipeId > 0)
             {
                 var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
@@ -345,22 +350,22 @@ namespace MealsService.Services
             return false;
         }
 
-        public void GenerateSchedule(int userId, DateTime start, DateTime end, GenerateScheduleRequest request)
+        public void GenerateSchedule(int userId, LocalDate start, LocalDate end, GenerateScheduleRequest request)
         {
             //Pull the preferences to know which recipes to filter to (Quick&Dirty, Healthy, etc)
             var preference = _dietService.GetPreferences(userId);
             
             var dietGoal = _dietService.GetDietGoalsByUserId(userId).FirstOrDefault();
             //TODO: This should be based on user's TZ
-            var currentDay = new DateTime(start.Ticks, DateTimeKind.Utc);
+            var currentDay = new LocalDate(start.Year, start.Month, start.Day);
             
             ClearSchedule(userId, start, end);
 
             _dbContext.ScheduleGenerations.Add(new ScheduleGenerated
             {
                 UserId = userId,
-                StartDate = start,
-                EndDate = end,
+                StartDate = start.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz).ToDateTimeUtc(),
+                EndDate = end.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz).ToDateTimeUtc(),
                 Created = DateTime.UtcNow
             });
             
@@ -391,17 +396,14 @@ namespace MealsService.Services
 
             var scheduleDays = new List<ScheduleDay>();
 
-            while (currentDay.Ticks <= end.Ticks)
+            while (currentDay <= end)
             {
                 //Weeks start on Monday
-                var currentDOW = (int) currentDay.DayOfWeek - 1;
-                if (currentDOW < 0) currentDOW += 7;
-
-                var hasMeal = consumerDays.Contains(currentDOW) || generatorDays.Contains(currentDOW);
+                var hasMeal = consumerDays.Contains((int)currentDay.DayOfWeek - 1) || generatorDays.Contains((int)currentDay.DayOfWeek - 1);
 
                 var scheduleDay = new ScheduleDay
                 {
-                    Date = currentDay,
+                    NodaDate = currentDay,
                     DietTypeId = hasMeal ? dietGoal.TargetDietId : 0,
                     UserId = userId,
                     Created = DateTime.UtcNow,
@@ -411,7 +413,7 @@ namespace MealsService.Services
                 };
 
                 scheduleDays.Add(scheduleDay);
-                currentDay = currentDay.AddDays(1);
+                currentDay = currentDay.PlusDays(1);
             }
 
             foreach (var generator in plan.Generators)
@@ -520,10 +522,10 @@ namespace MealsService.Services
             };
         }
 
-        private void ClearSchedule(int userId, DateTime start, DateTime? end)
+        private void ClearSchedule(int userId, LocalDate start, LocalDate? end)
         {
             var days = _dbContext.ScheduleDays
-                .Where(d => d.UserId == userId && d.Date >= start && (!end.HasValue || d.Date <= end.Value))
+                .Where(d => d.UserId == userId && d.Date >= start.ToDateTimeUnspecified() && (!end.HasValue || d.Date <= end.Value.ToDateTimeUnspecified()))
                 .ToList();
 
             ((ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService))).ClearShoppingList(userId, start);

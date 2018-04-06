@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 using MealsService.Diets.Data;
+using NodaTime;
 
 namespace MealsService.Schedules.Data
 {
@@ -23,6 +24,26 @@ namespace MealsService.Schedules.Data
 
         public DateTime Created { get; set; }
         public DateTime Modified { get; set; }
+
+        [NotMapped]
+        public LocalDate NodaDate
+        {
+            get => LocalDate.FromDateTime(Date);
+            set => Date = value.ToDateTimeUnspecified();
+        }
+        [NotMapped]
+        public Instant NodaCreated
+        {
+            get => Instant.FromDateTimeUtc(DateTime.SpecifyKind(Created, DateTimeKind.Utc));
+            set => Created = value.ToDateTimeUtc();
+        }
+
+        [NotMapped]
+        public Instant NodaModified
+        {
+            get => Instant.FromDateTimeUtc(DateTime.SpecifyKind(Modified, DateTimeKind.Utc));
+            set => Modified = value.ToDateTimeUtc();
+        }
 
         /// <summary>
         /// Relationships

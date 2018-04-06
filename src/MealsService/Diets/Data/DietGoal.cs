@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using NodaTime;
 
 namespace MealsService.Diets.Data
 {
@@ -28,6 +29,21 @@ namespace MealsService.Diets.Data
 
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public DateTime Updated { get; set; }
+
+
+        [NotMapped]
+        public Instant NodaCreated
+        {
+            get => Instant.FromDateTimeUtc(DateTime.SpecifyKind(Created, DateTimeKind.Utc));
+            set => Created = value.ToDateTimeUtc();
+        }
+
+        [NotMapped]
+        public Instant NodaUpdated
+        {
+            get => Instant.FromDateTimeUtc(DateTime.SpecifyKind(Updated, DateTimeKind.Utc));
+            set => Updated = value.ToDateTimeUtc();
+        }
 
         //Navigation properties
         [IgnoreDataMember]

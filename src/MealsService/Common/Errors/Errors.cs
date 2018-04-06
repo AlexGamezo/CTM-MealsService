@@ -4,6 +4,7 @@ namespace MealsService.Common.Errors
 {
     public static class StandardErrors
     {
+        public static ServiceException InvalidDateSpecified = new ServiceException("Invalid Date format provided", 400, HttpStatusCode.BadRequest);
         public static ServiceException UnauthorizedRequest = new ServiceException("Unauthorized request", 401, HttpStatusCode.Unauthorized);
         public static ServiceException ForbiddenRequest = new ServiceException("Forbidden request", 403, HttpStatusCode.Forbidden);
         public static ServiceException MissingRequestedItem = new ServiceException("Requested item not found", 404, HttpStatusCode.NotFound);

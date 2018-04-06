@@ -1,5 +1,7 @@
 ﻿
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
+using NodaTime;
 
 namespace MealsService.Stats.Data
 {
@@ -15,5 +17,12 @@ namespace MealsService.Stats.Data
         public int Challenges { get; set; }
         public int MealsPerDay { get; set; }
         public int Streak { get; set; }
+
+        [NotMapped]
+        public LocalDate NodaWeek
+        {
+            get => LocalDate.FromDateTime(Week);
+            set => Week = value.ToDateTimeUnspecified();
+        }
     }
 }

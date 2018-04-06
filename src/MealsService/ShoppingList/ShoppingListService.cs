@@ -8,6 +8,7 @@ using MealsService.Services;
 using MealsService.ShoppingList.Data;
 using MealsService.ShoppingList.Dtos;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace MealsService.ShoppingList
 {
@@ -17,19 +18,21 @@ namespace MealsService.ShoppingList
 
         private ScheduleService _scheduleService;
         private RecipesService _recipesService;
+        private IServiceProvider _serviceProvider;
 
-        public ShoppingListService(MealsDbContext dbContext, ScheduleService scheduleService, RecipesService recipesService)
+        public ShoppingListService(MealsDbContext dbContext, ScheduleService scheduleService, RecipesService recipesService, IServiceProvider serviceProvider)
         {
             _dbContext = dbContext;
 
             _scheduleService = scheduleService;
             _recipesService = recipesService;
+            _serviceProvider = serviceProvider;
         }
 
-        public List<ShoppingListItem> GetShoppingList(int userId, DateTime weekStart, bool regenIfEmpty = true)
+        public List<ShoppingListItem> GetShoppingList(int userId, LocalDate weekStart, bool regenIfEmpty = true)
         {
             var items = _dbContext.ShoppingListItems
-                .Where(i => i.UserId == userId && i.WeekStart == weekStart)
+                .Where(i => i.UserId == userId && i.WeekStart == weekStart.ToDateTimeUnspecified())
                 .Include(s => s.Ingredient)
                     .ThenInclude(i => i.IngredientCategory)
                 .Include(s => s.MeasureType)
@@ -45,19 +48,19 @@ namespace MealsService.ShoppingList
             return items;
         }
 
-        public void ClearShoppingList(int userId, DateTime weekStart, bool includeManuals = false)
+        public void ClearShoppingList(int userId, LocalDate weekStart, bool includeManuals = false)
         {
             var items = _dbContext.ShoppingListItems
-                .Where(i => i.WeekStart == weekStart && (includeManuals || !i.ManuallyAdded))
+                .Where(i => i.WeekStart == weekStart.ToDateTimeUnspecified() && (includeManuals || !i.ManuallyAdded))
                 .ToList();
 
             _dbContext.ShoppingListItems.RemoveRange(items);
             _dbContext.SaveChanges();
         }
 
-        public void GenerateShoppingList(int userId, DateTime weekStart)
+        public void GenerateShoppingList(int userId, LocalDate weekStart)
         {
-            var schedule = _scheduleService.GetSchedule(userId, weekStart);
+            var schedule = _scheduleService.GetSchedule(userId, weekStart, weekStart.PlusDays(6));
 
             ClearShoppingList(userId, weekStart);
             if (schedule.Any(d => d.Meals.Any(s => s.RecipeId > 0)))
@@ -119,7 +122,7 @@ namespace MealsService.ShoppingList
                                 Checked = true,
                                 IngredientId = ingredient.IngredientId,
                                 MeasureTypeId = ingredient.MeasureTypeId,
-                                WeekStart = assoc.ShoppingListItem.WeekStart,
+                                NodaWeekStart = assoc.ShoppingListItem.NodaWeekStart,
                                 Unused = true
                             };
                             unusedIngredients.Add(unused);
@@ -151,7 +154,7 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public void HandlePreparationsAdded(int userId, List<Preparation> preparations, DateTime weekStart, bool pregenShoppingList = true)
+        public void HandlePreparationsAdded(int userId, List<Preparation> preparations, LocalDate weekStart, bool pregenShoppingList = true)
         {
             //Make sure the shopping list has been generated before making changes to it
             if (pregenShoppingList)
@@ -182,7 +185,7 @@ namespace MealsService.ShoppingList
                 {
                     var items = _dbContext.ShoppingListItems.Where(s =>
                             s.UserId == userId && s.IngredientId == group.Key && s.MeasureTypeId == measureGroup.Key &&
-                            s.WeekStart == weekStart)
+                            s.WeekStart == weekStart.ToDateTimeUnspecified())
                         .OrderByDescending(i => i.Unused)
                         .ToList();
 
@@ -210,7 +213,7 @@ namespace MealsService.ShoppingList
                                 MeasureTypeId = measureGroup.Key,
                                 Amount = 0,
                                 IngredientName = measureGroup.First().Ingredient.Name,
-                                WeekStart = weekStart,
+                                NodaWeekStart = weekStart,
                                 Checked = true
                             };
 
@@ -236,7 +239,7 @@ namespace MealsService.ShoppingList
                                 MeasureTypeId = measureGroup.Key,
                                 Amount = 0,
                                 IngredientName = measureGroup.First().Ingredient.Name,
-                                WeekStart = weekStart
+                                NodaWeekStart = weekStart
                             };
 
                             listItems.Add(item);
@@ -274,11 +277,11 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public ShoppingListItem AddItem(int userId, DateTime weekStart, ShoppingListItemDto dto)
+        public ShoppingListItem AddItem(int userId, LocalDate weekStart, ShoppingListItemDto dto)
         {
             var item = FromDto(dto);
 
-            item.WeekStart = weekStart;
+            item.NodaWeekStart = weekStart;
 
             _dbContext.ShoppingListItems.Add(item);
 

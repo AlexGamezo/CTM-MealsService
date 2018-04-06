@@ -4,8 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using MealsService.Common.Extensions;
 using MealsService.Diets;
+using MealsService.Infrastructure;
 using MealsService.Schedules.Data;
 using MealsService.Stats.Data;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace MealsService.Stats
 {
@@ -14,11 +17,13 @@ namespace MealsService.Stats
         private MealsDbContext _dbContext;
 
         private DietService _dietService;
+        private IServiceProvider _serviceProvider;
 
-        public StatsService(MealsDbContext dbContext, DietService dietService)
+        public StatsService(MealsDbContext dbContext, DietService dietService, IServiceProvider serviceProvider)
         {
             _dbContext = dbContext;
             _dietService = dietService;
+            _serviceProvider = serviceProvider;
         }
 
         public List<ImpactStatement> GetImpactStatements(int userId, List<ImpactStatement.Type> types = null)
@@ -35,18 +40,20 @@ namespace MealsService.Stats
             return statements.Skip(new Random().Next() % (statements.Count - 3)).Take(3).ToList();
         }
 
-        public StatSnapshot GetProgress(int userId, DateTime? start = null)
+        public StatSnapshot GetProgress(int userId, LocalDate? start = null)
         {
+            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+
             if (start == null)
             {
-                start = DateTime.UtcNow;
+                start = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
             }
 
-            start = start.GetWeekStart();
-            var end = start.Value.AddDays(7);
+            start = start.Value.GetWeekStart();
+            var end = start.Value.PlusDays(6);
 
             var meals = _dbContext.Meals.Where(m =>
-                m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start && m.ScheduleDay.Date < end);
+                m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start.Value.ToDateTimeUnspecified() && m.ScheduleDay.Date <= end.ToDateTimeUnspecified());
 
             var targetDiet = _dietService.GetDietGoalsByUserId(userId, start);
             var goal = _dietService.GetTargetForDiet(userId, targetDiet.First().TargetDietId, start);
@@ -62,7 +69,7 @@ namespace MealsService.Stats
                 Challenges = challengesMet,
                 MealsPerDay = 0,
                 Streak = GetStats(userId, 1).FirstOrDefault()?.Streak ?? 0,
-                Week = start.Value
+                NodaWeek = start.Value
             };
         }
 
@@ -79,10 +86,11 @@ namespace MealsService.Stats
         public void ProcessWeekStats()
         {
             var users = _dbContext.MenuPreferences.Select(m => m.UserId).ToList();
+            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
 
             for (var i = 0; i < users.Count; i++)
             {
-                var progress = GetProgress(users[i], DateTime.UtcNow.AddDays(-6));
+                var progress = GetProgress(users[i], SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(-6));
 
                 var snapshot = _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
 

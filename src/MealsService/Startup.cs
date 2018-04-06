@@ -15,11 +15,13 @@ using MealsService.Configurations;
 using MealsService.Recipes;
 using MealsService.Services;
 using MealsService.Diets;
+using MealsService.Infrastructure;
 using MealsService.Ingredients;
 using MealsService.ShoppingList;
 using MealsService.Tags;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MealsService.Stats;
+using RequestContext = Amazon.Runtime.Internal.RequestContext;
 
 namespace MealsService
 {
@@ -55,6 +57,7 @@ namespace MealsService
             services.AddScoped<MeasureTypesService>();
             services.AddScoped<ShoppingListService>();
             services.AddScoped<StatsService>();
+            services.AddScoped<Infrastructure.RequestContext>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
@@ -91,7 +94,8 @@ namespace MealsService
             loggerFactory.AddDebug();
 
             //app.UseDeveloperExceptionPage();
-            app.UseMiddleware(typeof(JsonExceptionHandlerMiddleware));
+            app.UseMiddleware<JsonExceptionHandlerMiddleware>();
+            app.UseMiddleware<RequestContextHydrateMiddleware>();
 
             app.UseCors(builder =>
             {

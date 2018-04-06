@@ -5,14 +5,18 @@ using System.Net;
 using Microsoft.AspNetCore.Authorization;
 
 using MealsService.Common;
+using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
-
+using MealsService.Infrastructure;
 using MealsService.Responses;
 using MealsService.Services;
 using MealsService.Recipes;
 using MealsService.Requests;
 using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
+using NodaTime.Text;
 
 namespace MealsService.Controllers
 {
@@ -21,11 +25,13 @@ namespace MealsService.Controllers
     {
         private ScheduleService _scheduleService { get; }
         private RecipesService _recipesService { get; }
+        private IServiceProvider _serviceProvider { get; }
 
-        public ScheduleController(ScheduleService scheduleService, RecipesService recipesService)
+        public ScheduleController(ScheduleService scheduleService, RecipesService recipesService, IServiceProvider serviceProvider)
         {
             _scheduleService = scheduleService;
             _recipesService = recipesService;
+            _serviceProvider = serviceProvider;
         }
         
         [Authorize]
@@ -40,11 +46,18 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            DateTime date = dateString == "" ? DateTime.UtcNow : DateTime.Parse(dateString);
+            var result = LocalDatePattern.Iso.Parse(dateString);
+            LocalDate localDate;
+            if (result.Success)
+            {
+                localDate = result.Value;
+            }
+            else
+            {
+                throw StandardErrors.InvalidDateSpecified;
+            }
 
-            var weekBeginning = date.GetWeekStart();
-
-            var scheduleDays = _scheduleService.GetSchedule(userId, weekBeginning)
+            var scheduleDays = _scheduleService.GetSchedule(userId, localDate.GetWeekStart(), localDate.GetWeekStart().PlusDays(6))
                 .Select(_scheduleService.ToScheduleDayDto)
                 .ToList();
 
@@ -111,12 +124,22 @@ namespace MealsService.Controllers
             {
                 userId = AuthorizedUser;
             }
-
+            
             var success = false;
+            var result = LocalDatePattern.Iso.Parse(dateString);
+            LocalDate localDate;
+            if (result.Success)
+            {
+                localDate = result.Value;
+            }
+            else
+            {
+                throw StandardErrors.InvalidDateSpecified;
+            }
 
             if (request.Op == ScheduleDayPatchRequest.Operation.AcceptChallenge)
             {
-                var day = _scheduleService.AddChallengeDay(userId, DateTime.Parse(dateString));
+                var day = _scheduleService.AddChallengeDay(userId, localDate);
 
                 return Json(new SuccessResponse<object>(
                     new
@@ -126,7 +149,7 @@ namespace MealsService.Controllers
             }
             else if (request.Op == ScheduleDayPatchRequest.Operation.DeclineChallenge)
             {
-                var day = _scheduleService.RemoveChallengeDay(userId, DateTime.Parse(dateString));
+                var day = _scheduleService.RemoveChallengeDay(userId, localDate);
 
                 return Json(new SuccessResponse<object>(
                     new
@@ -151,14 +174,23 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            DateTime date = dateString == "" ? DateTime.UtcNow : DateTime.Parse(dateString);
-
-            date = date.GetWeekStart();
-            var end = date.AddDays(6);
-
-            if (end > DateTime.UtcNow)
+            var result = LocalDatePattern.Iso.Parse(dateString);
+            LocalDate localDate;
+            if (result.Success)
             {
-                _scheduleService.GenerateSchedule(userId, date, end, request);
+                localDate = result.Value;
+            }
+            else
+            {
+                throw StandardErrors.InvalidDateSpecified;
+            }
+
+            var end = localDate.PlusDays(6);
+            var endInstant = end.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz).ToInstant();
+
+            if (endInstant > SystemClock.Instance.GetCurrentInstant())
+            {
+                _scheduleService.GenerateSchedule(userId, localDate, end, request);
             }
 
             return Get(userId, dateString);
@@ -174,11 +206,15 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            var schedule = _scheduleService.GetSchedule(userId, DateTime.UtcNow.GetWeekStart());
+            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+            var startDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
+
+            var schedule = _scheduleService.GetSchedule(userId, startDate, startDate.PlusDays(6));
 
             if (!schedule.Any(d => d.Meals.Any(m => m.ConfirmStatus == ConfirmStatus.UNSET)))
             {
-                schedule = _scheduleService.GetSchedule(userId, DateTime.UtcNow.GetWeekStart().AddDays(7));
+                startDate = startDate.PlusDays(7);
+                schedule = _scheduleService.GetSchedule(userId, startDate, startDate.PlusDays(6));
             }
 
             var meal = _scheduleService.ToMealDto(schedule.SelectMany(d => d.Meals).First(m => m.ConfirmStatus == ConfirmStatus.UNSET));

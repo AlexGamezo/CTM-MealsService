@@ -2,10 +2,16 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
+using MealsService.Common.Errors;
+using MealsService.Common.Extensions;
+using MealsService.Infrastructure;
 using MealsService.Responses;
 using MealsService.ShoppingList.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
+using NodaTime.Text;
 
 namespace MealsService.ShoppingList
 {
@@ -13,10 +19,12 @@ namespace MealsService.ShoppingList
     public class ShoppingListController : Controller
     {
         private ShoppingListService _shoppingListService { get; }
+        private IServiceProvider _serviceProvider { get; }
 
-        public ShoppingListController(ShoppingListService shoppingListService)
+        public ShoppingListController(ShoppingListService shoppingListService, IServiceProvider serviceProvider)
         {
             _shoppingListService = shoppingListService;
+            _serviceProvider = serviceProvider;
         }
 
         [Authorize]
@@ -49,36 +57,18 @@ namespace MealsService.ShoppingList
                 return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
             }
 
-            DateTime date;
-            if (dateString == "")
+            var result = LocalDatePattern.Iso.Parse(dateString);
+            LocalDate localDate;
+            if (result.Success)
             {
-                date = DateTime.Now.Date;
+                localDate = result.Value;
             }
             else
             {
-                var dateParts = dateString.Split('-');
-                if (dateParts.Length != 3)
-                {
-                    Response.StatusCode = (int) HttpStatusCode.BadRequest;
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", (int)HttpStatusCode.BadRequest));
-                }
-
-                int year, month, day;
-                if (!int.TryParse(dateParts[0], out year)
-                    || !int.TryParse(dateParts[1], out month)
-                    || !int.TryParse(dateParts[2], out day))
-                {
-                    Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", (int)HttpStatusCode.BadRequest));
-                }
-                date = new DateTime(year, month, day);
+                throw StandardErrors.InvalidDateSpecified;
             }
 
-            var days = (int)date.DayOfWeek - 1;
-            if (days < 0) days += 7;
-            var weekBeginning = date.Subtract(new TimeSpan(days, 0, 0, 0));
-
-            var shoppingList = _shoppingListService.GetShoppingList(userId, weekBeginning)
+            var shoppingList = _shoppingListService.GetShoppingList(userId, localDate.GetWeekStart())
                 .Select(_shoppingListService.ToDto)
                 .ToList();
 
@@ -105,37 +95,18 @@ namespace MealsService.ShoppingList
                 return Json(new ErrorResponse("Not authorized to make this request", (int) HttpStatusCode.Forbidden));
             }
 
-            DateTime date;
-            if (dateString == "")
+            var result = LocalDatePattern.Iso.Parse(dateString);
+            LocalDate localDate;
+            if (result.Success)
             {
-                date = DateTime.Now.Date;
+                localDate = result.Value;
             }
             else
             {
-                var dateParts = dateString.Split('-');
-                if (dateParts.Length != 3)
-                {
-                    Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", (int)HttpStatusCode.BadRequest));
-                }
-
-                int year, month, day;
-                if (!int.TryParse(dateParts[0], out year)
-                    || !int.TryParse(dateParts[1], out month)
-                    || !int.TryParse(dateParts[2], out day))
-                {
-                    Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    return Json(new ErrorResponse("Invalid date passed. Make sure it is in format (YYYY-mm-dd)", (int)HttpStatusCode.BadRequest));
-                }
-                date = new DateTime(year, month, day);
+                throw StandardErrors.InvalidDateSpecified;
             }
 
-            var days = (int)date.DayOfWeek - 1;
-            if (days < 0) days += 7;
-            var weekBeginning = date.Subtract(new TimeSpan(days, 0, 0, 0));
-
-
-            var item = _shoppingListService.AddItem(userId, weekBeginning, request);
+            var item = _shoppingListService.AddItem(userId, localDate.GetWeekStart(), request);
 
             if (item != null)
             {

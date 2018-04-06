@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using MealsService.Ingredients.Data;
+using NodaTime;
 
 namespace MealsService.ShoppingList.Data
 {
@@ -24,6 +25,13 @@ namespace MealsService.ShoppingList.Data
         public bool Checked { get; set; }
         public bool Unused { get; set; }
         public DateTime WeekStart { get; set; }
+
+        [NotMapped]
+        public LocalDate NodaWeekStart
+        {
+            get => LocalDate.FromDateTime(WeekStart);
+            set => WeekStart = value.ToDateTimeUnspecified();
+        }
 
         /// <summary>
         /// Relationships

@@ -1,4 +1,5 @@
 ﻿using System;
+using NodaTime;
 
 namespace MealsService.Common.Extensions
 {
@@ -22,6 +23,11 @@ namespace MealsService.Common.Extensions
             }
 
             return when.Value.GetWeekStart();
+        }
+
+        public static LocalDate GetWeekStart(this LocalDate when)
+        {
+            return when.PlusDays(-((int)when.DayOfWeek - 1));
         }
     }
 }

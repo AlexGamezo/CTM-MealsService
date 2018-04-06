@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using MealsService.Diets.Dtos;
+using MealsService.Infrastructure;
 using MealsService.Responses;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace MealsService.Diets
 {
@@ -13,10 +16,12 @@ namespace MealsService.Diets
     public class DietController : AuthorizedController
     {
         private DietService DietService { get; }
+        private IServiceProvider _serviceProvider { get; }
 
-        public DietController(DietService dietService)
+        public DietController(DietService dietService, IServiceProvider serviceProvider)
         {
             DietService = dietService;
+            _serviceProvider = serviceProvider;
         }
 
         [Authorize]
@@ -32,14 +37,17 @@ namespace MealsService.Diets
         {
             VerifyPermission(userId);
 
-            var dietGoals = DietService.GetDietGoalsByUserId(userId, DateTime.UtcNow);
+            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+            var now = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
+
+            var dietGoals = DietService.GetDietGoalsByUserId(userId, now);
 
             var menuPreference = DietService.GetPreferences(userId);
             return Json(new DietDto
             { 
                 Preferences = menuPreference,
                 Goals = dietGoals,
-                PrepPlanDays = DietService.GetPrepPlanDtos(userId, DateTime.UtcNow)
+                PrepPlanDays = DietService.GetPrepPlanDtos(userId, now)
             });
         }
 

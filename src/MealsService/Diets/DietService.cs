@@ -4,7 +4,11 @@ using System.Linq;
 
 using MealsService.Diets.Dtos;
 using MealsService.Diets.Data;
+using MealsService.Infrastructure;
 using MealsService.Recipes.Data;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
+using SystemClock = NodaTime.SystemClock;
 
 namespace MealsService.Diets
 {
@@ -30,11 +34,13 @@ namespace MealsService.Diets
 
         private DietsRepository _repository;
         private DietTypeService _dietTypeService;
+        private IServiceProvider _serviceProvider;
 
-        public DietService(MealsDbContext dbContext, DietTypeService dietTypeService)
+        public DietService(MealsDbContext dbContext, DietTypeService dietTypeService, IServiceProvider serviceProvider)
         {
             _repository = new DietsRepository(dbContext);
             _dietTypeService = dietTypeService;
+            _serviceProvider = serviceProvider;
         }
 
         public bool UpdatePreferences(int userId, MenuPreferencesDto update)
@@ -99,7 +105,7 @@ namespace MealsService.Diets
             return success;
         }
 
-        public List<DietGoalDto> GetDietGoalsByUserId(int userId, DateTime? when = null)
+        public List<DietGoalDto> GetDietGoalsByUserId(int userId, LocalDate? when = null)
         {
             var dietGoals = _repository.GetDietGoals(userId);
 
@@ -115,7 +121,7 @@ namespace MealsService.Diets
             return dietGoals.Select(ToDto).ToList();
         }
 
-        public int GetTargetForDiet(int userId, int dietTypeId, DateTime? when = null)
+        public int GetTargetForDiet(int userId, int dietTypeId, LocalDate? when = null)
         {
             var dietGoal = _repository.GetDietGoals(userId).FirstOrDefault(g => g.TargetDietId == dietTypeId);
 
@@ -128,14 +134,20 @@ namespace MealsService.Diets
                     Current = 1,
                     TargetDietId = 3,
                     UserId = userId,
-                    Created = DateTime.UtcNow,
-                    Updated = DateTime.UtcNow
+                    NodaCreated = SystemClock.Instance.GetCurrentInstant(),
+                    NodaUpdated = SystemClock.Instance.GetCurrentInstant()
                 };
             }
 
+            Instant whenInstant;
             if (!when.HasValue)
             {
-                when = DateTime.UtcNow;
+                whenInstant = SystemClock.Instance.GetCurrentInstant();
+            }
+            else
+            {
+                whenInstant = when.Value.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz)
+                    .ToInstant();
             }
 
             var changeRate = dietGoal.Current < dietGoal.Target ? 1 : -1;
@@ -145,14 +157,14 @@ namespace MealsService.Diets
 
             //TODO: This should be somehow based on weeks confirmed to be successes up to now, not a strict number of weeks passed
             //          to deal with people that are not engaged and come back 5 months later.
-            var weeksPassed = (int) ((when - dietGoal.Updated).Value.TotalDays / 7);
+            var weeksPassed = (int)((whenInstant - dietGoal.NodaUpdated).TotalDays / 7);
 
             var scaled = dietGoal.Current + (weeksPassed / changeRate);
 
             return changeRate > 0 ? Math.Min(scaled, dietGoal.Target) : Math.Max(scaled, dietGoal.Target);
         }
 
-        public List<int> GetChangeDays(int userId, DateTime when)
+        public List<int> GetChangeDays(int userId, LocalDate when)
         {
             var primaryGoal = GetDietGoalsByUserId(userId, when).FirstOrDefault();
 
@@ -183,7 +195,7 @@ namespace MealsService.Diets
             return changeDaysOfWeek;
         }
 
-        public PrepPlan GetPrepPlan(int userId, DateTime when)
+        public PrepPlan GetPrepPlan(int userId, LocalDate when)
         {
             var primaryGoal = GetDietGoalsByUserId(userId, when).FirstOrDefault();
             var prepPlan = _repository.GetPrepPlan(userId, primaryGoal.Current);
@@ -246,7 +258,7 @@ namespace MealsService.Diets
             return prepPlan;
         }
 
-        public List<PrepPlanDay> GetPrepPlanDtos(int userId, DateTime when)
+        public List<PrepPlanDay> GetPrepPlanDtos(int userId, LocalDate when)
         {
             var prepPlan = GetPrepPlan(userId, when);
 
@@ -287,7 +299,9 @@ namespace MealsService.Diets
         {
             var newGenerators = FromDtos(days);
 
-            var plan = GetPrepPlan(userId, DateTime.UtcNow);
+            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+
+            var plan = GetPrepPlan(userId, SystemClock.Instance.GetCurrentInstant().InZone(zone).Date);
             var removedGenerators = new List<PrepPlanGenerator>();
             var removedConsumers = new List<PrepPlanConsumer>();
 
@@ -394,13 +408,6 @@ namespace MealsService.Diets
             }
 
             return generators.SelectMany(d => d.Value.Values).ToList();
-        }
-
-        public void SetChangeDays(int userId, DateTime when, List<int> changeDays)
-        {
-            var primaryGoal = GetDietGoalsByUserId(userId, when).FirstOrDefault();
-
-            _repository.SetChangeDays(userId, primaryGoal.Current, changeDays);
         }
 
         public MenuPreferencesDto GetPreferences(int userId)
