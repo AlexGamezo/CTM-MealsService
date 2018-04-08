@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading.Tasks;
 using MealsService.Common;
 using MealsService.Responses;
 using Microsoft.AspNetCore.Mvc;
@@ -62,10 +63,10 @@ namespace MealsService.Stats
             });
         }
 
-        [HttpPost("processWeek")]
-        public IActionResult ProcessWeek()
+        [HttpGet("processWeek")]
+        public async Task<IActionResult> ProcessWeek()
         {
-            _statsService.ProcessWeekStats();
+            await _statsService.ProcessWeekStatsAsync();
 
             return Json(new SuccessResponse());
         }

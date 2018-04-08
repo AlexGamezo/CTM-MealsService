@@ -15,7 +15,7 @@ namespace MealsService.Infrastructure
         public int UserId { get; set; }
         public string Timezone { get; set; } = DEFAULT_TIMEZONE;
 
-        public DateTimeZone Dtz { get; private set; }
+        public DateTimeZone Dtz { get; internal set; }
 
         public void Hydrate(HttpContext httpContext)
         {

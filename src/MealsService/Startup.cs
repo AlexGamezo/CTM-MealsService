@@ -21,6 +21,7 @@ using MealsService.ShoppingList;
 using MealsService.Tags;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MealsService.Stats;
+using MealsService.Users;
 using RequestContext = Amazon.Runtime.Internal.RequestContext;
 
 namespace MealsService
@@ -57,9 +58,13 @@ namespace MealsService
             services.AddScoped<MeasureTypesService>();
             services.AddScoped<ShoppingListService>();
             services.AddScoped<StatsService>();
+            services.AddScoped<UsersService>();
             services.AddScoped<Infrastructure.RequestContext>();
+            services.AddScoped<RequestContextFactory>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
+            services.Configure<CredentialsConfiguration>(Configuration.GetSection("Credentials"));
+            services.Configure<ServicesConfiguration>(Configuration.GetSection("Services"));
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
             services.AddAWSService<IAmazonS3>();
 

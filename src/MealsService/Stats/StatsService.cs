@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MealsService.Common.Extensions;
 using MealsService.Diets;
 using MealsService.Infrastructure;
@@ -83,16 +84,23 @@ namespace MealsService.Stats
             return stats;
         }
 
-        public void ProcessWeekStats()
+        public async Task ProcessWeekStatsAsync()
         {
             var users = _dbContext.MenuPreferences.Select(m => m.UserId).ToList();
-            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
 
+            //start context for the user
+                //load user and profile for timezone
+                //
             for (var i = 0; i < users.Count; i++)
             {
-                var progress = GetProgress(users[i], SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(-6));
+                await _serviceProvider.GetService<RequestContextFactory>().StartRequestContext(users[i]);
 
-                var snapshot = _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
+                var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+                var progress = GetProgress(users[i],
+                    SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(-6));
+
+                var snapshot =
+                    _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
 
                 if (snapshot == null)
                 {
@@ -107,6 +115,8 @@ namespace MealsService.Stats
                     snapshot.Challenges = progress.Challenges;
                 }
             }
+
+            _serviceProvider.GetService<RequestContextFactory>().ClearContext();
 
             _dbContext.SaveChanges();
         }
