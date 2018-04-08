@@ -63,7 +63,7 @@ namespace MealsService.Stats
             });
         }
 
-        [HttpGet("processWeek")]
+        [HttpPost("processWeek")]
         public async Task<IActionResult> ProcessWeek()
         {
             await _statsService.ProcessWeekStatsAsync();
