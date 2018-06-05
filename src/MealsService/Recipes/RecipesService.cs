@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 using MealsService.Configurations;
+using MealsService.Ingredients.Data;
 using MealsService.Requests;
 using MealsService.Recipes.Dtos;
 using MealsService.Recipes.Data;
@@ -86,24 +87,10 @@ namespace MealsService.Recipes
 
         public List<Recipe> FindRecipesBySlug(IEnumerable<string> slugs, int userId = 0)
         {
-            var recipes = _dbContext.Recipes
-                .Include(m => m.RecipeIngredients)
-                .ThenInclude(mi => mi.Ingredient)
-                .ThenInclude(i => i.IngredientCategory)
-                .Include(m => m.RecipeIngredients)
-                .ThenInclude(mi => mi.MeasureType)
-                .Include(m => m.RecipeDietTypes)
-                .Include(m => m.Steps)
-                .Where(m => slugs.Contains(m.Slug))
-                .ToList();
+            var recipeIds = _dbContext.Recipes.Where(r => slugs.Contains(r.Slug))
+                .ToList().Select(r => r.Id);
 
-            if (userId > 0)
-            {
-                recipes.ForEach(recipe =>
-                    _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
-            }
-
-            return recipes;
+            return FindRecipes(recipeIds, userId);
         }
 
         public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId = 0)
@@ -407,7 +394,19 @@ namespace MealsService.Recipes
 
             return _dbContext.SaveChanges() > 0;
         }
-        
+
+        public List<RecipeIngredientDto> ConvertMeasureType(List<RecipeIngredient> recipeIngredients, MeasureSystem system = MeasureSystem.IMPERIAL)
+        {
+            var dtos = new List<RecipeIngredientDto>();
+
+            if (!recipeIngredients.Any())
+            {
+                return dtos;
+            }
+
+
+        }
+
         public RecipeDto ToRecipeDto(Recipe recipe)
         {
             if (recipe == null)

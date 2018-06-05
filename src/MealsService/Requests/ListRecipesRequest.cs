@@ -1,6 +1,6 @@
 ﻿
 using System.Collections.Generic;
-
+using MealsService.Ingredients.Data;
 using MealsService.Recipes.Data;
 
 namespace MealsService.Requests
@@ -12,6 +12,8 @@ namespace MealsService.Requests
         public int Offset = 0;
 
         public MealType MealType = MealType.Any;
+
+        public MeasureSystem MeasureSystem;
 
         public List<int> IngredientIds = new List<int>();
         public bool AllIngredients = false;
