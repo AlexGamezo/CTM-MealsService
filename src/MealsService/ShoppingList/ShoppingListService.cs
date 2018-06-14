@@ -63,7 +63,7 @@ namespace MealsService.ShoppingList
             var schedule = _scheduleService.GetSchedule(userId, weekStart, weekStart.PlusDays(6));
 
             ClearShoppingList(userId, weekStart);
-            if (schedule.Any(d => d.Meals.Any(s => s.RecipeId > 0)))
+            if (schedule.Any(d => d.Meals != null && d.Meals.Any(s => s.RecipeId > 0)))
             {
                 var preparations = schedule.Where(d => d.Preparations != null).SelectMany(d => d.Preparations).ToList();
                 HandlePreparationsAdded(userId, preparations, weekStart, false);

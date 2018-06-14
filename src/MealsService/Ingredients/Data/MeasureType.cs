@@ -18,6 +18,6 @@ namespace MealsService.Ingredients.Data
         public int Id { get; set; }
         public string Name { get; set; }        //Ounces
         public string Short { get; set; }       //oz
-        public MeasureSystem MeasureSystem { get; set; }
+        //public MeasureSystem MeasureSystem { get; set; }
     }
 }
