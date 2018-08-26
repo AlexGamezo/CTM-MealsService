@@ -187,7 +187,7 @@ namespace MealsService.Diets
                     if (!def.Contains((int) nowInstant.DayOfWeek - 1))
                     {
                         def.RemoveAt(0);
-                        def.Add(nowInstant.Day - 1);
+                        def.Add((int)nowInstant.DayOfWeek - 1);
                     }
 
                     _repository.SetChangeDays(userId, primaryGoal.Current, def);
