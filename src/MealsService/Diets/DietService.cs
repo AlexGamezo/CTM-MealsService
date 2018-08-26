@@ -179,7 +179,18 @@ namespace MealsService.Diets
                 }
                 else
                 {
-                    return DefaultChangeDays[primaryGoal.Current];
+                    var def = DefaultChangeDays[primaryGoal.Current];
+
+                    var nowInstant = SystemClock.Instance.GetCurrentInstant()
+                        .InZone(_serviceProvider.GetService<RequestContext>().Dtz);
+
+                    if (!def.Contains((int) nowInstant.DayOfWeek - 1))
+                    {
+                        def.RemoveAt(0);
+                        def.Add(nowInstant.Day - 1);
+                    }
+
+                    _repository.SetChangeDays(userId, primaryGoal.Current, def);
                 }
             }
 
@@ -188,7 +199,7 @@ namespace MealsService.Diets
             if (changeDaysOfWeek.Count() < primaryGoal.Current)
             {
                 changeDaysOfWeek.AddRange(DefaultChangeDays[primaryGoal.Current].Except(changeDaysOfWeek)
-                    .Take(primaryGoal.Current - changeDaysOfWeek.Count()));
+                    .Take(primaryGoal.Current - changeDaysOfWeek.Count));
                 _repository.SetChangeDays(userId, primaryGoal.Current, changeDaysOfWeek);
             }
 

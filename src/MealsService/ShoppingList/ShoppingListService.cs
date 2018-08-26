@@ -257,7 +257,7 @@ namespace MealsService.ShoppingList
                     //It's already been added
                     if (item.Id != checkedItem?.Id)
                     {
-                        item.Amount += measureGroup.Sum(mi => mi.Amount);
+                        item.Amount += amountNeeded;
                     }
 
                     item.ShoppingListItemPreparations.AddRange(measureGroup.SelectMany(mi =>
