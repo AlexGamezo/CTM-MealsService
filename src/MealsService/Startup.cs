@@ -104,7 +104,11 @@ namespace MealsService
 
             app.UseCors(builder =>
             {
-                builder.WithOrigins("http://localhost:63516", "http://localhost:63517")
+                builder.WithOrigins(
+                        "http://localhost:63516", "http://localhost:63517",
+                        "http://localhost:5000", "http://localhost:5003",
+                        "https://www.greenerplate.com/"
+                    )
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     ;
