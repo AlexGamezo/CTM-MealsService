@@ -33,6 +33,7 @@ namespace MealsService
 
         public DbSet<ImpactStatement> ImpactStatements { get; set; }
         public DbSet<StatSnapshot> StatSnapshots { get; set; }
+        public DbSet<StatSummary> StatSummaries { get; set; }
 
 
         #region User-Specific

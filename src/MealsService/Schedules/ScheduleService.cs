@@ -13,6 +13,7 @@ using MealsService.Responses.Schedules;
 using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
+using MealsService.Stats;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -475,8 +476,17 @@ namespace MealsService.Services
             }
             
             slot.ConfirmStatus = confirm;
-            
-            return _dbContext.Entry(slot).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+
+            if (_dbContext.Entry(slot).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0)
+            {
+                var statService = _serviceProvider.GetService<StatsService>();
+
+                statService.TrackCompletion(userId, confirm == ConfirmStatus.CONFIRMED_YES ? 1 : -1, slot.IsChallenge);
+
+                return true;
+            }
+
+            return false;
         }
 
         public ScheduleDayDto ToScheduleDayDto(ScheduleDay day)

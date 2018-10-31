@@ -8,6 +8,7 @@ using MealsService.Diets;
 using MealsService.Infrastructure;
 using MealsService.Schedules.Data;
 using MealsService.Stats.Data;
+using MealsService.Stats.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -27,7 +28,7 @@ namespace MealsService.Stats
             _serviceProvider = serviceProvider;
         }
 
-        public List<ImpactStatement> GetImpactStatements(int userId, List<ImpactStatement.Type> types = null)
+        public List<PersonalizedStatement> GetImpactStatements(int userId, List<ImpactType> types = null)
         {
             IQueryable<ImpactStatement> statementsQuery = _dbContext.ImpactStatements;
 
@@ -36,9 +37,65 @@ namespace MealsService.Stats
                 statementsQuery = statementsQuery.Where(s => types.Contains(s.ImpactType));
             }
 
-            var statements = statementsQuery.ToList();
+            var allStatements = statementsQuery.ToList();
+            var statements = new List<ImpactStatement>();
+            var rand = new Random();
 
-            return statements.Skip(new Random().Next() % (statements.Count - 3)).Take(3).ToList();
+            for (var i = 0; i < 3 && allStatements.Count > 0; i++)
+            {
+                var randIndex = rand.Next(allStatements.Count);
+                statements.Add(allStatements[randIndex]);
+                allStatements.RemoveAt(randIndex);
+            }
+ 
+            return PersonalizeStatements(userId, statements);
+        }
+
+        public void TrackCompletion(int userId, int increment, bool isChallenge)
+        {
+            if (increment != 0)
+            {
+                var progress = GetProgress(userId);
+
+                var summary = _dbContext.StatSummaries.FirstOrDefault(s => s.UserId == userId);
+
+                if (summary == null)
+                {
+                    summary = new StatSummary
+                    {
+                        UserId = userId,
+                    };
+                    _dbContext.StatSummaries.Add(summary);
+                }
+
+                summary.NumMeals = Math.Max(0, summary.NumMeals + increment);
+                summary.NumChallenges = Math.Max(0, summary.NumChallenges + (isChallenge ? increment : 0));
+                summary.CurrentStreak = progress.Streak;
+                summary.MealsPerWeek = progress.Goal;
+
+                _dbContext.SaveChanges();
+            }
+        }
+
+        private List<PersonalizedStatement> PersonalizeStatements(int userId, List<ImpactStatement> impactStatements)
+        {
+            var summary = GetSummaryStats(userId);
+
+            var personalizedStatements = new List<PersonalizedStatement>();
+
+            foreach (var statement in impactStatements)
+            {
+                personalizedStatements.Add(statement.PersonalizeStatement(userId, summary));
+            }
+
+            return personalizedStatements;
+        }
+
+        public StatSummary GetSummaryStats(int userId)
+        {
+            var summary = _dbContext.StatSummaries.FirstOrDefault(s => s.UserId == userId);
+
+            return summary;
         }
 
         public StatSnapshot GetProgress(int userId, LocalDate? start = null)
@@ -53,8 +110,11 @@ namespace MealsService.Stats
             start = start.Value.GetWeekStart();
             var end = start.Value.PlusDays(6);
 
-            var meals = _dbContext.Meals.Where(m =>
-                m.ScheduleDay.UserId == userId && m.ScheduleDay.Date >= start.Value.ToDateTimeUnspecified() && m.ScheduleDay.Date <= end.ToDateTimeUnspecified());
+            //TODO: This should be in meals service, requestable
+            var meals = _dbContext.Meals
+                .Where(m => m.ScheduleDay.UserId == userId &&
+                            m.ScheduleDay.Date >= start.Value.ToDateTimeUnspecified() &&
+                            m.ScheduleDay.Date <= end.ToDateTimeUnspecified());
 
             var targetDiet = _dietService.GetDietGoalsByUserId(userId, start);
             var goal = _dietService.GetTargetForDiet(userId, targetDiet.First().TargetDietId, start);
@@ -69,7 +129,7 @@ namespace MealsService.Stats
                 Value = progress,
                 Challenges = challengesMet,
                 MealsPerDay = 0,
-                Streak = GetStats(userId, 1).FirstOrDefault()?.Streak ?? 0,
+                Streak = progress >= goal ? GetStats(userId, 1).FirstOrDefault()?.Streak ?? 0 + 1 : 0,
                 NodaWeek = start.Value
             };
         }
@@ -99,8 +159,7 @@ namespace MealsService.Stats
                 var progress = GetProgress(users[i],
                     SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(-6));
 
-                var snapshot =
-                    _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
+                var snapshot = _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
 
                 if (snapshot == null)
                 {

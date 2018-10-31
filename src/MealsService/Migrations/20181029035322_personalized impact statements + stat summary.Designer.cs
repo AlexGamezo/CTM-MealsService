@@ -16,9 +16,10 @@ using System;
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20181029035322_personalized impact statements + stat summary")]
+    partial class personalizedimpactstatementsstatsummary
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

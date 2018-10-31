@@ -39,6 +39,11 @@ namespace MealsService.Stats
         [HttpGet("{userId:int}/impact")]
         public IActionResult GetImpactStats(int userId)
         {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+
             return Json(new
             {
                 Impacts = _statsService.GetImpactStatements(userId)
