@@ -147,31 +147,37 @@ namespace MealsService.Stats
         public async Task ProcessWeekStatsAsync()
         {
             var users = _dbContext.MenuPreferences.Select(m => m.UserId).ToList();
+            var requestContextFactory = _serviceProvider.GetService<RequestContextFactory>();
 
             //start context for the user
                 //load user and profile for timezone
                 //
             for (var i = 0; i < users.Count; i++)
             {
-                await _serviceProvider.GetService<RequestContextFactory>().StartRequestContext(users[i]);
+                await requestContextFactory.StartRequestContext(users[i]);
 
-                var zone = _serviceProvider.GetService<RequestContext>().Dtz;
-                var progress = GetProgress(users[i],
-                    SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(-6));
-
-                var snapshot = _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
-
-                if (snapshot == null)
+                var context = _serviceProvider.GetService<RequestContext>();
+                if (context.UserId != 0)
                 {
-                    snapshot = progress;
-                    _dbContext.Add(snapshot);
-                }
-                else
-                {
-                    snapshot.Goal = progress.Goal;
-                    snapshot.Value = progress.Value;
-                    snapshot.Streak = progress.Streak;
-                    snapshot.Challenges = progress.Challenges;
+                    var zone = context.Dtz;
+                    var progress = GetProgress(users[i],
+                        SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(-6));
+
+                    var snapshot =
+                        _dbContext.StatSnapshots.FirstOrDefault(s => s.UserId == users[i] && s.Week == progress.Week);
+
+                    if (snapshot == null)
+                    {
+                        snapshot = progress;
+                        _dbContext.Add(snapshot);
+                    }
+                    else
+                    {
+                        snapshot.Goal = progress.Goal;
+                        snapshot.Value = progress.Value;
+                        snapshot.Streak = progress.Streak;
+                        snapshot.Challenges = progress.Challenges;
+                    }
                 }
             }
 

@@ -1,4 +1,5 @@
 ﻿
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -35,22 +36,23 @@ namespace MealsService.Users
             request.Headers.Add("Authorization", "Bearer " + _credsConfig.Value.Token);
             
             //Get the response
-            var wr = (await request.GetResponseAsync()) as HttpWebResponse;
-
-            if (wr.StatusCode == HttpStatusCode.OK)
+            try
             {
-                Stream receiveStream = wr.GetResponseStream();
-                StreamReader reader = new StreamReader(receiveStream, Encoding.UTF8);
-                UserDto content = JsonConvert.DeserializeObject<UserDto>(reader.ReadToEnd());
+                var wr = (await request.GetResponseAsync()) as HttpWebResponse;
 
-                return content;
+                if (wr.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream receiveStream = wr.GetResponseStream();
+                    StreamReader reader = new StreamReader(receiveStream, Encoding.UTF8);
+                    UserDto content = JsonConvert.DeserializeObject<UserDto>(reader.ReadToEnd());
+
+                    return content;
+                }
             }
-            else
-            {
-                ;
-            }
+            catch (Exception e) { ; }
 
             return null;
         }
     }
 }
+

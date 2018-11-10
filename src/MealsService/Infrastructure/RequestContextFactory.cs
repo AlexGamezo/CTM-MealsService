@@ -22,12 +22,18 @@ namespace MealsService.Infrastructure
         {
             var user = await _usersService.GetUserAsync(userId);
 
-            var context = _serviceProvider.GetService<RequestContext>();
+            if (user != null)
+            {
 
-            context.UserId = userId;
-            context.IsAuthenticated = true;
-            context.Dtz = user.Timezone != null ? DateTimeZoneProviders.Tzdb.GetZoneOrNull(user.Timezone) : DateTimeZone.Utc;
-            context.Timezone = user.Timezone ?? context.Dtz.Id;
+                var context = _serviceProvider.GetService<RequestContext>();
+
+                context.UserId = userId;
+                context.IsAuthenticated = true;
+                context.Dtz = user.Timezone != null
+                    ? DateTimeZoneProviders.Tzdb.GetZoneOrNull(user.Timezone)
+                    : DateTimeZone.Utc;
+                context.Timezone = user.Timezone ?? context.Dtz.Id;
+            }
         }
 
         public void ClearContext()
