@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MealsService.Common.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 using MealsService.Recipes.Data;
 using MealsService.Diets;
+using MealsService.Email;
 using MealsService.Infrastructure;
+using MealsService.Recipes;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
@@ -14,6 +17,8 @@ using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
 using MealsService.Stats;
+using MealsService.Users;
+using MealsService.Users.Data;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -487,6 +492,57 @@ namespace MealsService.Services
             }
 
             return false;
+        }
+
+        public async Task<bool> SendNextWeekScheduleNotifications()
+        {
+            var users = _dbContext.MenuPreferences.Select(m => m.UserId).ToList();
+            var requestContextFactory = _serviceProvider.GetService<RequestContextFactory>();
+
+            for (var i = 0; i < users.Count; i++)
+            {
+                var user = await requestContextFactory.StartRequestContext(users[i]);
+
+                var context = _serviceProvider.GetService<RequestContext>();
+                if (context.UserId != 0 && user != null)
+                {
+                    var prefs = await _serviceProvider.GetService<UsersService>().GetUserPreferences(context.UserId);
+
+                    if (!prefs.Preferences.ContainsKey("mealPlanReminder") ||
+                        prefs.Preferences["mealPlanReminder"] != "false")
+                    {
+                        await SendNextWeekScheduleAsync(user);
+                    }
+                }
+            }
+
+            _serviceProvider.GetService<RequestContextFactory>().ClearContext();
+
+            return true;
+        }
+
+        public async Task<bool> SendNextWeekScheduleAsync(UserDto user)
+        {
+            var context = _serviceProvider.GetService<RequestContext>();
+            var zone = context.Dtz;
+            var nowDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(7);
+
+            var schedule = GetSchedule(1, nowDate.GetWeekStart(), nowDate.GetWeekStart().PlusDays(6))
+                .Select(ToScheduleDayDto)
+                .ToList();
+            var recipeIds = schedule.SelectMany(d => d.Meals?.Select(m => m.RecipeId).ToList() ?? new List<int>()).ToList();
+
+            var model = new ScheduleRecipeContainer
+            {
+                Schedule = schedule,
+                Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds)
+                    .ToDictionary(r => r.Id, r => r)
+            };
+
+            
+
+            return await _serviceProvider.GetService<EmailService>()
+                .SendEmail("MealPlanReady", user.Email, "Your meals for next week are ready", user.FullName, model);
         }
 
         public ScheduleDayDto ToScheduleDayDto(ScheduleDay day)

@@ -25,5 +25,7 @@
         public float GeoLong { get; set; }
 
         public string Timezone { get; set; }
+
+        public string FullName => $"{FirstName} {LastName}".Trim();
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using System.Threading.Tasks;
 using MealsService.Users;
+using MealsService.Users.Data;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -18,13 +19,12 @@ namespace MealsService.Infrastructure
             _serviceProvider = serviceProvider;
         }
 
-        public async Task StartRequestContext(int userId)
+        public async Task<UserDto> StartRequestContext(int userId)
         {
             var user = await _usersService.GetUserAsync(userId);
 
             if (user != null)
             {
-
                 var context = _serviceProvider.GetService<RequestContext>();
 
                 context.UserId = userId;
@@ -34,6 +34,8 @@ namespace MealsService.Infrastructure
                     : DateTimeZone.Utc;
                 context.Timezone = user.Timezone ?? context.Dtz.Id;
             }
+
+            return user;
         }
 
         public void ClearContext()

@@ -53,6 +53,36 @@ namespace MealsService.Users
 
             return null;
         }
+
+        public async Task<UserPreferences> GetUserPreferences(int userId)
+        {
+            UTF8Encoding enc = new UTF8Encoding();
+
+            //Create request
+            var request = HttpWebRequest.Create(_servicesConfig.Value.Auth + $"preferences/{userId}");
+            request.Method = "GET";
+            request.ContentType = "application/json";
+            request.PreAuthenticate = true;
+            request.Headers.Add("Authorization", "Bearer " + _credsConfig.Value.Token);
+            
+            //Get the response
+            try
+            {
+                var wr = (await request.GetResponseAsync()) as HttpWebResponse;
+
+                if (wr.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream receiveStream = wr.GetResponseStream();
+                    StreamReader reader = new StreamReader(receiveStream, Encoding.UTF8);
+                    UserPreferences content = JsonConvert.DeserializeObject<UserPreferences>(reader.ReadToEnd());
+
+                    return content;
+                }
+            }
+            catch (Exception e) { ; }
+
+            return null;
+        }
     }
 }
 

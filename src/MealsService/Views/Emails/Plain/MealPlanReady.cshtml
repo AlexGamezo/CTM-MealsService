@@ -1,0 +1,42 @@
+﻿@using MealsService.Responses.Schedules
+@using MealsService.Schedules.Dtos
+@{
+    Layout = "Email/_TransactionalLayout_Plain";
+    
+    ScheduleRecipeContainer container = Model;
+}
+Your Meal Plan for next week (11/26-12/2) is ready to go.
+Check it at https://www.greenerplate.com/schedule
+
+
+@foreach (ScheduleDayDto day in container.Schedule)
+{
+    if (day.Meals != null)
+    {
+        var str = day.Date.DayOfWeek + $" - https://www.greenerplate.com/schedule/{day.Date.DayOfWeek.ToString().ToLower()} \r\n";
+
+        {
+            @Html.Raw(str)
+        }
+
+        foreach (MealDto meal in day.Meals)
+        {
+            if (meal.RecipeId != 0 && !meal.IsLeftovers)
+            {
+                str = container.Recipes[meal.RecipeId].Name + $" - for {meal.MealType}\r\n\r\n";
+            }
+            else
+            {
+                str = $"Leftovers from {meal.Preparation.Date.DayOfWeek.ToString()} for {meal.MealType}\r\n\r\n";
+            }
+
+            @Html.Raw(str)
+        }
+    }
+}
+
+
+Your Shopping List - https://www.greenerplate.com/shoppinglist
+
+Check for things you already have in your pantry or fridge.
+Then, get your shopping out of the way early.

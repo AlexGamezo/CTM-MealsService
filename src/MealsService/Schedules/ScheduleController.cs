@@ -1,12 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 
 using MealsService.Common;
 using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
+using MealsService.Email;
 using MealsService.Infrastructure;
 using MealsService.Responses;
 using MealsService.Services;
@@ -33,7 +36,15 @@ namespace MealsService.Controllers
             _recipesService = recipesService;
             _serviceProvider = serviceProvider;
         }
-        
+
+        [Route("mealplanready"), HttpPost]
+        public async Task<IActionResult> MealPlanReady()
+        {
+            var success = await _scheduleService.SendNextWeekScheduleNotifications();
+
+            return Json(success ? (object)new SuccessResponse() : new ErrorResponse("Could not send message", 500));
+        }
+
         [Authorize]
         [Route("me"), HttpGet]
         [Route("{userId:int}"), HttpGet]
@@ -48,13 +59,22 @@ namespace MealsService.Controllers
 
             var result = LocalDatePattern.Iso.Parse(dateString);
             LocalDate localDate;
-            if (result.Success)
+
+            if (!string.IsNullOrEmpty(dateString))
             {
-                localDate = result.Value;
+                if (result.Success)
+                {
+                    localDate = result.Value;
+                }
+                else
+                {
+                    throw StandardErrors.InvalidDateSpecified;
+                }
             }
             else
             {
-                throw StandardErrors.InvalidDateSpecified;
+                var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+                localDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
             }
 
             var scheduleDays = _scheduleService.GetSchedule(userId, localDate.GetWeekStart(), localDate.GetWeekStart().PlusDays(6))

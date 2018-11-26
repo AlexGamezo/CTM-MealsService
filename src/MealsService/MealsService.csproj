@@ -16,6 +16,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Remove="Views\Emails\Html\MealPlanReady.cshtml" />
+    <Content Remove="Views\Emails\Html\Test.cshtml" />
+    <Content Remove="Views\Emails\Plain\MealPlanReady.cshtml" />
+    <Content Remove="Views\Emails\Plain\Test.cshtml" />
+    <Content Remove="Views\Shared\_EmailTransactional.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="wwwroot\**\*">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
@@ -59,6 +67,20 @@
 
   <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Views\Emails\Html\MealPlanReady.cshtml" />
+    <None Include="Views\Emails\Html\Test.cshtml" />
+    <None Include="Views\Emails\Plain\MealPlanReady.cshtml" />
+    <None Include="Views\Emails\Plain\Test.cshtml" />
+    <None Include="Views\Shared\Email\_TransactionalLayout.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Views\Shared\Email\_TransactionalLayout_Plain.cshtml">
+      <Pack>$(IncludeRazorContentInPack)</Pack>
+    </Content>
   </ItemGroup>
 
 </Project>

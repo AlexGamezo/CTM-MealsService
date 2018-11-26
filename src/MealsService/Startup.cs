@@ -1,8 +1,8 @@
-﻿
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Amazon.S3;
 using MealsService.Common.Errors;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -15,11 +15,11 @@ using MealsService.Configurations;
 using MealsService.Recipes;
 using MealsService.Services;
 using MealsService.Diets;
+using MealsService.Email;
 using MealsService.Infrastructure;
 using MealsService.Ingredients;
 using MealsService.ShoppingList;
 using MealsService.Tags;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MealsService.Stats;
 using MealsService.Users;
 using RequestContext = Amazon.Runtime.Internal.RequestContext;
@@ -61,6 +61,8 @@ namespace MealsService
             services.AddScoped<UsersService>();
             services.AddScoped<Infrastructure.RequestContext>();
             services.AddScoped<RequestContextFactory>();
+            services.AddScoped<EmailService>();
+            services.AddScoped<IViewRenderService, ViewRenderService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
             services.Configure<CredentialsConfiguration>(Configuration.GetSection("Credentials"));
@@ -98,7 +100,7 @@ namespace MealsService
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
-            //app.UseDeveloperExceptionPage();
+            app.UseDeveloperExceptionPage();
             app.UseMiddleware<JsonExceptionHandlerMiddleware>();
             app.UseMiddleware<RequestContextHydrateMiddleware>();
 
