@@ -496,7 +496,7 @@ namespace MealsService.Services
 
         public async Task<bool> SendNextWeekScheduleNotifications()
         {
-            var users = _dbContext.MenuPreferences.Select(m => m.UserId).ToList();
+            var users = _dbContext.MenuPreferences.Select(m => m.UserId).OrderBy(u => u).ToList();
             var requestContextFactory = _serviceProvider.GetService<RequestContextFactory>();
 
             for (var i = 0; i < users.Count; i++)
@@ -527,7 +527,7 @@ namespace MealsService.Services
             var zone = context.Dtz;
             var nowDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(7);
 
-            var schedule = GetSchedule(1, nowDate.GetWeekStart(), nowDate.GetWeekStart().PlusDays(6))
+            var schedule = GetSchedule(user.UserId, nowDate.GetWeekStart(), nowDate.GetWeekStart().PlusDays(6))
                 .Select(ToScheduleDayDto)
                 .ToList();
             var recipeIds = schedule.SelectMany(d => d.Meals?.Select(m => m.RecipeId).ToList() ?? new List<int>()).ToList();
@@ -535,11 +535,9 @@ namespace MealsService.Services
             var model = new ScheduleRecipeContainer
             {
                 Schedule = schedule,
-                Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds)
+                Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds,0, false)
                     .ToDictionary(r => r.Id, r => r)
             };
-
-            
 
             return await _serviceProvider.GetService<EmailService>()
                 .SendEmail("MealPlanReady", user.Email, "Your meals for next week are ready", user.FullName, model);
@@ -623,7 +621,8 @@ namespace MealsService.Services
             
             var sortedRecipes = _dbContext.Recipes
                 .Include(m => m.RecipeIngredients)
-                .Where(m => (m.MealType == MealType.Any || m.MealType == request.MealType) && (request.DietTypeId == 0 || m.RecipeDietTypes.Any(mdt => mdt.DietTypeId == request.DietTypeId)))
+                //TODO: Fix
+                .Where(m => m.MealType == MealType.Dinner /*(m.MealType == MealType.Any || m.MealType == request.MealType)*/ && (request.DietTypeId == 0 || m.RecipeDietTypes.Any(mdt => mdt.DietTypeId == request.DietTypeId)))
                 //Exclude any recipes that have ingredients that were requested to be excluded
                 .Where(m => m.RecipeIngredients.All(mi => !excludedIngredientIds.Contains(mi.IngredientId)))
                 //Sort recipes that have the requested ingredients to the top

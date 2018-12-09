@@ -5,15 +5,16 @@
 
     ScheduleRecipeContainer container = Model;
 }
-
-Your <a style="color: #383838; font-weight: bold; text-decoration: none" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))">Meal Plan</a> for
-next week (11/26-12/2) is ready to go.<br />
+<div>
+    Your <a style="color: #383838; font-weight: bold; text-decoration: none" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))">Meal Plan</a> for
+    this week (@(container.Schedule[0].Date.ToString("MM/dd"))-@(container.Schedule[6].Date.ToString("MM/dd"))) is ready to go.<br />
+</div>
 <div style="text-align: left;">
     @foreach (ScheduleDayDto day in container.Schedule)
     {
         if (day.Meals != null)
         {
-            <a style="text-decoration: none; border: 0; color: #383838;" href="https://www.greenerplate.com/schedule/week/@(day.Date.ToString("yyyy-MM-dd"))/@(day.Date.DayOfWeek.ToString().ToLower())">
+            <a style="text-decoration: none; border: 0; color: #383838;" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))/@(day.Date.DayOfWeek.ToString().ToLower())">
                 <div style="color: #383838; font-weight: bold; font-size: 1.25em; padding-top: 35px">
                     @day.Date.DayOfWeek.ToString()
                 </div>

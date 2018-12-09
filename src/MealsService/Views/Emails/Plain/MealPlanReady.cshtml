@@ -2,18 +2,18 @@
 @using MealsService.Schedules.Dtos
 @{
     Layout = "Email/_TransactionalLayout_Plain";
-    
+
     ScheduleRecipeContainer container = Model;
 }
-Your Meal Plan for next week (11/26-12/2) is ready to go.
-Check it at https://www.greenerplate.com/schedule
+Your Meal Plan for this week (@(container.Schedule[0].Date.ToString("MM/dd"))-@(container.Schedule[6].Date.ToString("MM/dd"))) is ready to go.
+Check it at https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))
 
 
 @foreach (ScheduleDayDto day in container.Schedule)
 {
     if (day.Meals != null)
     {
-        var str = day.Date.DayOfWeek + $" - https://www.greenerplate.com/schedule/{day.Date.DayOfWeek.ToString().ToLower()} \r\n";
+        var str = day.Date.DayOfWeek + $" - https://www.greenerplate.com/schedule/week/{day.Date:yyyy-MM-dd}/{day.Date.DayOfWeek.ToString().ToLower()} \r\n";
 
         {
             @Html.Raw(str)
@@ -36,7 +36,7 @@ Check it at https://www.greenerplate.com/schedule
 }
 
 
-Your Shopping List - https://www.greenerplate.com/shoppinglist
+Your Shopping List - https://www.greenerplate.com/shoppinglist/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))
 
 Check for things you already have in your pantry or fridge.
 Then, get your shopping out of the way early.

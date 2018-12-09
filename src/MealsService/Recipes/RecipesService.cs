@@ -93,33 +93,36 @@ namespace MealsService.Recipes
             return FindRecipes(recipeIds, userId);
         }
 
-        public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId = 0)
+        public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId = 0, bool includeIngredients = true)
         {
-            var recipes = FindRecipes(ids, userId);
+            var recipes = FindRecipes(ids, userId, includeIngredients);
 
             return recipes.Select(ToRecipeDto).ToList();
         }
 
-        public List<Recipe> FindRecipes(IEnumerable<int> ids, int userId = 0)
+        public List<Recipe> FindRecipes(IEnumerable<int> ids, int userId = 0, bool includeIngredients = true)
         {
-            var recipes = _dbContext.Recipes
-                .Include(m => m.RecipeIngredients)
-                    .ThenInclude(mi => mi.Ingredient)
+            IQueryable<Recipe> recipes = _dbContext.Recipes;
+
+            if (includeIngredients)
+            {
+                recipes = recipes.Include(m => m.RecipeIngredients)
+                        .ThenInclude(mi => mi.Ingredient)
                         .ThenInclude(i => i.IngredientCategory)
-                .Include(m => m.RecipeIngredients)
-                    .ThenInclude(mi => mi.MeasureType)
-                .Include(m => m.RecipeDietTypes)
+                        .Include(m => m.RecipeIngredients)
+                        .ThenInclude(mi => mi.MeasureType);
+            }
+            recipes = recipes.Include(m => m.RecipeDietTypes)
                 .Include(m => m.Steps)
-                .Where(m => ids.Contains(m.Id))
-                .ToList();
+                .Where(m => ids.Contains(m.Id));
 
             if (userId > 0)
             {
-                recipes.ForEach(recipe =>
+                recipes.ToList().ForEach(recipe =>
                     _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
             }
 
-            return recipes;
+            return recipes.ToList();
         }
 
         public RecipeDto UpdateRecipe(int id, UpdateRecipeRequest request)

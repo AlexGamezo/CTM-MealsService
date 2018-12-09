@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -9,7 +8,6 @@ using Microsoft.AspNetCore.Authorization;
 using MealsService.Common;
 using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
-using MealsService.Email;
 using MealsService.Infrastructure;
 using MealsService.Responses;
 using MealsService.Services;
