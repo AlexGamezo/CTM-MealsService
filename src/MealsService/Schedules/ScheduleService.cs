@@ -496,7 +496,7 @@ namespace MealsService.Services
 
         public async Task<bool> SendNextWeekScheduleNotifications()
         {
-            var users = _dbContext.MenuPreferences.Where(m => m.UserId == 1).Select(m => m.UserId).OrderBy(u => u).ToList();
+            var users = _dbContext.MenuPreferences.Select(m => m.UserId).OrderBy(u => u).ToList();
             var requestContextFactory = _serviceProvider.GetService<RequestContextFactory>();
 
             for (var i = 0; i < users.Count; i++)
