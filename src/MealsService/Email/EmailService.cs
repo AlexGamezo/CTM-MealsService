@@ -2,7 +2,9 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
+using MealsService.Configurations;
 using MealsService.Infrastructure;
+using Microsoft.Extensions.Options;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 
@@ -16,11 +18,14 @@ namespace MealsService.Email
         private SendGridClient _client;
         private IViewRenderService _viewRenderer;
 
-        public EmailService(IViewRenderService viewRenderer)
-        {
-            _viewRenderer = viewRenderer;
+        private IOptions<SendgridConfiguration> _config;
 
-            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+        public EmailService(IViewRenderService viewRenderer, IOptions<SendgridConfiguration> config)
+        {
+            _viewRenderer = viewRenderer; 
+            _config = config;
+
+            var apiKey = _config.Value.ApiKey;
             _client = new SendGridClient(apiKey);
         }
 

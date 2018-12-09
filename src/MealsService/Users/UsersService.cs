@@ -1,15 +1,13 @@
-﻿
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using MealsService.Configurations;
-using MealsService.Users.Data;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+
+using MealsService.Configurations;
+using MealsService.Users.Data;
 
 namespace MealsService.Users
 {

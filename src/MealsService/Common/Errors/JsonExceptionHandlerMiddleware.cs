@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net;
 using System.Threading.Tasks;
 using MealsService.Responses;
@@ -44,6 +45,8 @@ namespace MealsService.Common.Errors
                     await context.Response.WriteAsync(JsonConvert.SerializeObject(errResponse,
                         new JsonSerializerSettings { Formatting = Formatting.Indented }));
                 }
+
+                Debug.WriteLine(e.ToString());
             }
         }
     }

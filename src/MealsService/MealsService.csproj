@@ -8,6 +8,10 @@
     <PackageId>MealsService</PackageId>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="Migrations\20171214023001_added slug for Recipes.cs" />
     <Compile Remove="Migrations\20171214023001_added slug for Recipes.Designer.cs" />

@@ -66,6 +66,7 @@ namespace MealsService
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
             services.Configure<CredentialsConfiguration>(Configuration.GetSection("Credentials"));
+            services.Configure<SendgridConfiguration>(Configuration.GetSection("Sendgrid"));
             services.Configure<ServicesConfiguration>(Configuration.GetSection("Services"));
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
             services.AddAWSService<IAmazonS3>();
