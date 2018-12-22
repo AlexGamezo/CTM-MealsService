@@ -5,13 +5,13 @@
 
     ScheduleRecipeContainer container = Model;
 }
-Your Meal Plan for this week (@(container.Schedule[0].Date.ToString("MM/dd"))-@(container.Schedule[6].Date.ToString("MM/dd"))) is ready to go.
+Your Meal Plan for next week (@(container.Schedule[0].Date.ToString("MM/dd"))-@(container.Schedule[6].Date.ToString("MM/dd"))) is ready to go.
 Check it at https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))
 
 
 @foreach (ScheduleDayDto day in container.Schedule)
 {
-    if (day.Meals != null)
+    if (day.Meals != null && day.Meals.Any())
     {
         var str = day.Date.DayOfWeek + $" - https://www.greenerplate.com/schedule/week/{day.Date:yyyy-MM-dd}/{day.Date.DayOfWeek.ToString().ToLower()} \r\n";
 

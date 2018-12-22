@@ -37,6 +37,17 @@ namespace MealsService.Stats
                 statementsQuery = statementsQuery.Where(s => types.Contains(s.ImpactType));
             }
 
+            var summary = GetSummaryStats(userId);
+
+            if (summary.NumMeals == 0)
+            {
+                statementsQuery = statementsQuery.Where(s => s.CalcType == CalculationType.STATIC);
+            }
+            else
+            {
+                statementsQuery = statementsQuery.Where(s => s.CalcType != CalculationType.STATIC);
+            }
+
             var allStatements = statementsQuery.ToList();
             var statements = new List<ImpactStatement>();
             var rand = new Random();
