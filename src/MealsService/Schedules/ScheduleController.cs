@@ -106,7 +106,7 @@ namespace MealsService.Controllers
         [Authorize]
         [Route("me/meals/{mealId:int}"), HttpPatch]
         [Route("{userId:int}/meals/{mealId:int}"), HttpPatch]
-        public IActionResult UpdateMeal(int userId, int mealId, [FromBody]MealPatchRequest request)
+        public async Task<IActionResult> UpdateMeal(int userId, int mealId, [FromBody]MealPatchRequest request)
         {
             if (userId == 0)
             {
@@ -121,7 +121,7 @@ namespace MealsService.Controllers
             }
             else if (request.Op == MealPatchRequest.Operation.UpdateConfirmState)
             {
-                success = _scheduleService.ConfirmMeal(userId, mealId, request.Confirm);
+                success = await _scheduleService.ConfirmMealAsync(userId, mealId, request.Confirm);
             }
 
             if (!success)

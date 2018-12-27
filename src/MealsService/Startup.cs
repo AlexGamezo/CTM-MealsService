@@ -22,7 +22,6 @@ using MealsService.ShoppingList;
 using MealsService.Tags;
 using MealsService.Stats;
 using MealsService.Users;
-using RequestContext = Amazon.Runtime.Internal.RequestContext;
 
 namespace MealsService
 {
@@ -59,7 +58,7 @@ namespace MealsService
             services.AddScoped<ShoppingListService>();
             services.AddScoped<StatsService>();
             services.AddScoped<UsersService>();
-            services.AddScoped<Infrastructure.RequestContext>();
+            services.AddScoped<RequestContext>();
             services.AddScoped<RequestContextFactory>();
             services.AddScoped<EmailService>();
             services.AddScoped<IViewRenderService, ViewRenderService>();

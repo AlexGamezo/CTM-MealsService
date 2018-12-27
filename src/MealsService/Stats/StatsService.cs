@@ -9,6 +9,7 @@ using MealsService.Infrastructure;
 using MealsService.Schedules.Data;
 using MealsService.Stats.Data;
 using MealsService.Stats.Extensions;
+using MealsService.Users;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -20,6 +21,8 @@ namespace MealsService.Stats
 
         private DietService _dietService;
         private IServiceProvider _serviceProvider;
+
+        private static int JOURNEY_MEAL_COMPLETION_ID = 1;
 
         public StatsService(MealsDbContext dbContext, DietService dietService, IServiceProvider serviceProvider)
         {
@@ -62,7 +65,7 @@ namespace MealsService.Stats
             return PersonalizeStatements(userId, statements);
         }
 
-        public void TrackCompletion(int userId, int increment, bool isChallenge)
+        public async Task TrackCompletionAsync(int userId, int increment, bool isChallenge)
         {
             if (increment != 0)
             {
@@ -83,6 +86,15 @@ namespace MealsService.Stats
                 summary.NumChallenges = Math.Max(0, summary.NumChallenges + (isChallenge ? increment : 0));
                 summary.CurrentStreak = progress.Streak;
                 summary.MealsPerWeek = progress.Goal;
+
+                if (summary.NumMeals == 1)
+                {
+                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, JOURNEY_MEAL_COMPLETION_ID, true);
+                }
+                else if (summary.NumMeals == 0)
+                {
+                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, JOURNEY_MEAL_COMPLETION_ID, false);
+                }
 
                 _dbContext.SaveChanges();
             }

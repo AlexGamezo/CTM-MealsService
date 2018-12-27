@@ -17,9 +17,17 @@ namespace MealsService.Infrastructure
 
         public DateTimeZone Dtz { get; internal set; }
 
+        public string Token { get; internal set; }
+
         public void Hydrate(HttpContext httpContext)
         {
             var claims = httpContext.User.Claims.ToList();
+            if (httpContext.Request.Headers.ContainsKey("Authorization"))
+            {
+                Token = httpContext.Request.Headers["Authorization"];
+                if(!string.IsNullOrEmpty(Token))
+                    Token = Token.Substring(7).Trim();
+            }
 
             if (claims.Any())
             {

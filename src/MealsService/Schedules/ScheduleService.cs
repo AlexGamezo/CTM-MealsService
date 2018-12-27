@@ -468,7 +468,7 @@ namespace MealsService.Services
             _dbContext.SaveChanges();
         }
 
-        public bool ConfirmMeal(int userId, int mealId, ConfirmStatus confirm)
+        public async Task<bool> ConfirmMealAsync(int userId, int mealId, ConfirmStatus confirm)
         {
             var slot = _dbContext.Meals
                 .Where(s => s.Id == mealId)
@@ -486,7 +486,7 @@ namespace MealsService.Services
             {
                 var statService = _serviceProvider.GetService<StatsService>();
 
-                statService.TrackCompletion(userId, confirm == ConfirmStatus.CONFIRMED_YES ? 1 : -1, slot.IsChallenge);
+                await statService.TrackCompletionAsync(userId, confirm == ConfirmStatus.CONFIRMED_YES ? 1 : -1, slot.IsChallenge);
 
                 return true;
             }
