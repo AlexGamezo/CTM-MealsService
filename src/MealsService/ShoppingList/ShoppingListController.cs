@@ -2,6 +2,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
 using MealsService.Infrastructure;
@@ -30,7 +31,7 @@ namespace MealsService.ShoppingList
         [Authorize]
         [Route("me/items"), HttpGet]
         [Route("me/{dateString:datetime}/items"), HttpGet]
-        public IActionResult Get(string dateString = "")
+        public Task<IActionResult> Get(string dateString = "")
         {
             var claims = HttpContext.User.Claims;
             int id = 0;
@@ -42,7 +43,7 @@ namespace MealsService.ShoppingList
 
         [Route("{userId:int}/items"), HttpGet]
         [Route("{userId:int}/{dateString:datetime}/items"), HttpGet]
-        public IActionResult Get(int userId, string dateString = "")
+        public async Task<IActionResult> Get(int userId, string dateString = "")
         {
             var claims = HttpContext.User.Claims.ToList();
             int authorizedId = 0;
@@ -68,7 +69,7 @@ namespace MealsService.ShoppingList
                 throw StandardErrors.InvalidDateSpecified;
             }
 
-            var shoppingList = _shoppingListService.GetShoppingList(userId, localDate.GetWeekStart())
+            var shoppingList = (await _shoppingListService.GetShoppingList(userId, localDate.GetWeekStart()))
                 .Select(_shoppingListService.ToDto)
                 .ToList();
 
@@ -80,7 +81,7 @@ namespace MealsService.ShoppingList
 
         [Route("{userId:int}/items"), HttpPost]
         [Route("{userId:int}/{dateString:datetime}/items"), HttpPost]
-        public IActionResult AddItem([FromBody] ShoppingListItemDto request, int userId, string dateString)
+        public async Task<IActionResult> AddItem([FromBody] ShoppingListItemDto request, int userId, string dateString)
         {
             var claims = HttpContext.User.Claims.ToList();
             int authorizedId = 0;
@@ -106,7 +107,7 @@ namespace MealsService.ShoppingList
                 throw StandardErrors.InvalidDateSpecified;
             }
 
-            var item = _shoppingListService.AddItem(userId, localDate.GetWeekStart(), request);
+            var item = await _shoppingListService.AddItemAsync(userId, localDate.GetWeekStart(), request);
 
             if (item != null)
             {
@@ -125,7 +126,7 @@ namespace MealsService.ShoppingList
         [Route("me/items/{id:int}")]
         [Route("{userId:int}/items/{id:int}")]
         [HttpPut]
-        public IActionResult UpdateItem([FromBody]ShoppingListItemDto request, int userId, int id)
+        public async Task<IActionResult> UpdateItem([FromBody]ShoppingListItemDto request, int userId, int id)
         {
             var claims = HttpContext.User.Claims.ToList();
             int authorizedId = 0;
@@ -149,7 +150,7 @@ namespace MealsService.ShoppingList
                 request.Id = id;
             }
 
-            var response = _shoppingListService.UpdateItem(userId, request);
+            var response = await _shoppingListService.UpdateItemAsync(userId, request);
 
             if (response)
             {

@@ -16,6 +16,9 @@ using MealsService.Ingredients.Data;
 using MealsService.Requests;
 using MealsService.Recipes.Dtos;
 using MealsService.Recipes.Data;
+using MealsService.Users;
+using MealsService.Users.Data;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MealsService.Recipes
 {
@@ -24,12 +27,18 @@ namespace MealsService.Recipes
         private string _recipeImagesBucketName;
         private string _region;
 
+        private const int JOURNEY_FAVORITES_ID = 3;
+
         private MealsDbContext _dbContext;
         private IAmazonS3 _s3Client;
 
-        public RecipesService(MealsDbContext dbContext, IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
+        private IServiceProvider _serviceProvider;
+
+        public RecipesService(MealsDbContext dbContext, IAmazonS3 s3Client, IOptions<AWSConfiguration> options, IServiceProvider serviceProvider)
         {
             _dbContext = dbContext;
+            _serviceProvider = serviceProvider;
+
             _s3Client = s3Client;
             _recipeImagesBucketName = options.Value.RecipeImagesBucket;
             _region = options.Value.Region;
@@ -338,7 +347,7 @@ namespace MealsService.Recipes
             }).ToList();
         }
 
-        public bool Vote(int recipeId, int userId, RecipeVote.VoteType voteValue)
+        public async Task<bool> VoteAsync(int recipeId, int userId, RecipeVote.VoteType voteValue)
         {
             var vote = _dbContext.RecipeVotes.FirstOrDefault(rv => rv.UserId == userId && rv.RecipeId == recipeId);
 
@@ -350,7 +359,21 @@ namespace MealsService.Recipes
 
             vote.Vote = voteValue;
 
-            return _dbContext.Entry(vote).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+            var success = _dbContext.Entry(vote).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+
+            var likes = _dbContext.RecipeVotes.Count(v => v.UserId == userId && v.Vote == RecipeVote.VoteType.LIKE);
+
+            if (likes <= 1)
+            {
+                var updateRequest = new UpdateJourneyProgressRequest
+                {
+                    JourneyStepId = JOURNEY_FAVORITES_ID,
+                    Completed = likes == 1
+                };
+                await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
+            }
+
+            return success;
         }
 
         private string GetRecipeImageUrl(string filename)

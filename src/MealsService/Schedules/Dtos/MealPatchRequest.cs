@@ -8,7 +8,8 @@ namespace MealsService.Schedules.Dtos
         {
             Unknown = 0,
             MoveMeal = 1,
-            UpdateConfirmState = 2
+            UpdateConfirmState = 2,
+            ChangeServings = 3
         }
 
         public Operation Op { get; set; }
@@ -16,8 +17,11 @@ namespace MealsService.Schedules.Dtos
         //Used only if moving day, this is the target day to move to
         public int ScheduleDayId { get; set; }
 
-        //Used only if 
+        //Used only if Op == UpdateConfirmState
         public ConfirmStatus Confirm { get; set; }
+
+        //Used only if Op == ChangeServings
+        public int NewServings { get; set; }
 
         public bool IsChallenge { get; set; }
 

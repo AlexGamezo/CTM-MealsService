@@ -61,6 +61,7 @@ namespace MealsService
             services.AddScoped<RequestContext>();
             services.AddScoped<RequestContextFactory>();
             services.AddScoped<EmailService>();
+            services.AddScoped<SubscriptionsService>();
             services.AddScoped<IViewRenderService, ViewRenderService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));

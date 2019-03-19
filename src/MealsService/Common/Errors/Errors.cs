@@ -22,4 +22,18 @@ namespace MealsService.Common.Errors
     {
         public static ServiceException RecipeUpdateFailed = new ServiceException("Could not update recipe image", 2001);
     }
+
+    public static class SubscriptionErrors
+    {
+        public static ServiceException MissingSubscription = new ServiceException("Missing or expired subscription", 3001, HttpStatusCode.BadRequest);
+    }
+
+    public static class ScheduleErrors
+    {
+        public static ServiceException MissingMeal = new ServiceException("Missing target meal", 4001, HttpStatusCode.BadRequest);
+        public static ServiceException InvalidTargetByUser = new ServiceException("Target is for different user", 4002, HttpStatusCode.BadRequest);
+        public static ServiceException CantMoveConfirmedMeal = new ServiceException("Cannot move a confirmed meal", 4003, HttpStatusCode.BadRequest);
+        public static ServiceException CantMoveMealOutsideWeek = new ServiceException("Cannot move a meal outside of the week", 4004, HttpStatusCode.BadRequest);
+        public static ServiceException MissingPreparation = new ServiceException("Missing target preparation", 4005, HttpStatusCode.BadRequest);
+    }
 }
