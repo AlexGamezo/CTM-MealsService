@@ -68,14 +68,14 @@ namespace MealsService.Recipes
 
         [Authorize]
         [HttpPost("{id:int}/votes")]
-        public IActionResult Vote(int id, [FromBody] RecipeVoteDto request)
+        public async Task<IActionResult> Vote(int id, [FromBody] RecipeVoteDto request)
         {
             var claims = HttpContext.User.Claims;
             int userId = 0;
 
             Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out userId);
 
-            _recipesService.Vote(id, userId, request.Vote);
+            await _recipesService.VoteAsync(id, userId, request.Vote);
 
             return Json(new SuccessResponse());
         }

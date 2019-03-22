@@ -10,6 +10,7 @@ using MealsService.Schedules.Data;
 using MealsService.Stats.Data;
 using MealsService.Stats.Extensions;
 using MealsService.Users;
+using MealsService.Users.Data;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -87,13 +88,14 @@ namespace MealsService.Stats
                 summary.CurrentStreak = progress.Streak;
                 summary.MealsPerWeek = progress.Goal;
 
-                if (summary.NumMeals == 1)
+                if (summary.NumMeals <= 1)
                 {
-                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, JOURNEY_MEAL_COMPLETION_ID, true);
-                }
-                else if (summary.NumMeals == 0)
-                {
-                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, JOURNEY_MEAL_COMPLETION_ID, false);
+                    var updateRequest = new UpdateJourneyProgressRequest
+                    {
+                        JourneyStepId = JOURNEY_MEAL_COMPLETION_ID,
+                        Completed = summary.NumMeals == 1
+                    };
+                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
                 }
 
                 _dbContext.SaveChanges();

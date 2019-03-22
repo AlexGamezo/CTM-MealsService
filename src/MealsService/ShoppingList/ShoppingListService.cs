@@ -2,12 +2,16 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using MealsService.Recipes;
 using MealsService.Schedules.Data;
 using MealsService.Services;
 using MealsService.ShoppingList.Data;
 using MealsService.ShoppingList.Dtos;
+using MealsService.Users;
+using MealsService.Users.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
 namespace MealsService.ShoppingList
@@ -16,21 +20,27 @@ namespace MealsService.ShoppingList
     {
         private MealsDbContext _dbContext;
 
+        private const int JOURNEY_SHOPPING_ID = 2;
+
         private ScheduleService _scheduleService;
         private RecipesService _recipesService;
+        private SubscriptionsService _subService;
         private IServiceProvider _serviceProvider;
 
-        public ShoppingListService(MealsDbContext dbContext, ScheduleService scheduleService, RecipesService recipesService, IServiceProvider serviceProvider)
+        public ShoppingListService(MealsDbContext dbContext, ScheduleService scheduleService, RecipesService recipesService, SubscriptionsService subService, IServiceProvider serviceProvider)
         {
             _dbContext = dbContext;
 
             _scheduleService = scheduleService;
             _recipesService = recipesService;
             _serviceProvider = serviceProvider;
+            _subService = subService;
         }
 
-        public List<ShoppingListItem> GetShoppingList(int userId, LocalDate weekStart, bool regenIfEmpty = true)
+        public async Task<List<ShoppingListItem>> GetShoppingList(int userId, LocalDate weekStart, bool regenIfEmpty = true)
         {
+            await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
+
             var items = _dbContext.ShoppingListItems
                 .Where(i => i.UserId == userId && i.WeekStart == weekStart.ToDateTimeUnspecified())
                 .Include(s => s.Ingredient)
@@ -40,9 +50,9 @@ namespace MealsService.ShoppingList
 
             if (items.All(i => i.ManuallyAdded) && regenIfEmpty)
             {
-                GenerateShoppingList(userId, weekStart);
+                await GenerateShoppingListAsync(userId, weekStart);
 
-                return GetShoppingList(userId, weekStart, false);
+                return await GetShoppingList(userId, weekStart, false);
             }
 
             return items;
@@ -58,15 +68,17 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public void GenerateShoppingList(int userId, LocalDate weekStart)
+        public async Task GenerateShoppingListAsync(int userId, LocalDate weekStart)
         {
-            var schedule = _scheduleService.GetSchedule(userId, weekStart, weekStart.PlusDays(6));
+            await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
+
+            var schedule = await _scheduleService.GetScheduleAsync(userId, weekStart, weekStart.PlusDays(6));
 
             ClearShoppingList(userId, weekStart);
             if (schedule.Any(d => d.Meals != null && d.Meals.Any(s => s.RecipeId > 0)))
             {
                 var preparations = schedule.Where(d => d.Preparations != null).SelectMany(d => d.Preparations).ToList();
-                HandlePreparationsAdded(userId, preparations, weekStart, false);
+                await HandlePreparationsAddedAsync(userId, preparations, weekStart, false);
             }
         }
 
@@ -154,12 +166,12 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public void HandlePreparationsAdded(int userId, List<Preparation> preparations, LocalDate weekStart, bool pregenShoppingList = true)
+        public async Task HandlePreparationsAddedAsync(int userId, List<Preparation> preparations, LocalDate weekStart, bool pregenShoppingList = true)
         {
             //Make sure the shopping list has been generated before making changes to it
             if (pregenShoppingList)
             {
-                GetShoppingList(userId, weekStart);
+                await GetShoppingList(userId, weekStart);
             }
 
             var recipeServings = preparations.Where(s => s.RecipeId > 0)
@@ -277,8 +289,10 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public ShoppingListItem AddItem(int userId, LocalDate weekStart, ShoppingListItemDto dto)
+        public async Task<ShoppingListItem> AddItemAsync(int userId, LocalDate weekStart, ShoppingListItemDto dto)
         {
+            await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
+
             var item = FromDto(dto);
 
             item.NodaWeekStart = weekStart;
@@ -293,7 +307,7 @@ namespace MealsService.ShoppingList
             return null;
         }
 
-        public bool UpdateItem(int userId, ShoppingListItemDto request)
+        public async Task<bool> UpdateItemAsync(int userId, ShoppingListItemDto request)
         {
             var item = _dbContext.ShoppingListItems.FirstOrDefault(i => i.Id == request.Id);
 
@@ -315,7 +329,24 @@ namespace MealsService.ShoppingList
                 changes = true;
             }
 
-            return !changes || _dbContext.SaveChanges() > 0;
+            var success = !changes || _dbContext.SaveChanges() > 0;
+
+            if (changes && success)
+            {
+                var unckecked = _dbContext.ShoppingListItems.Count(i => i.WeekStart == item.WeekStart && i.Checked == false);
+
+                if (unckecked == 0)
+                {
+                    var updateRequest = new UpdateJourneyProgressRequest
+                    {
+                        JourneyStepId = JOURNEY_SHOPPING_ID,
+                        Completed = true
+                    };
+                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
+                }
+            }
+
+            return success;
         }
 
         public bool RemoveItem(int userId, int id)

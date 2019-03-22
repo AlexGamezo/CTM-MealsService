@@ -56,7 +56,7 @@ namespace MealsService.Users
             return null;
         }
 
-        public async Task<bool> UpdateJourneyProgressAsync(int userId, int stepId, bool completed)
+        public async Task<bool> UpdateJourneyProgressAsync(int userId, UpdateJourneyProgressRequest updateRequest)
         {
             var context = _serviceProvider.GetService<RequestContext>();
             
@@ -72,9 +72,7 @@ namespace MealsService.Users
             {
                 using (var streamWriter = new StreamWriter(request.GetRequestStream()))
                 {
-                    string json = "{\"JourneyStepId\":" + stepId +", \"Completed\": "+ completed + "}";
-
-                    streamWriter.Write(json);
+                    streamWriter.Write(JsonConvert.SerializeObject(updateRequest));
                     streamWriter.Flush();
                     streamWriter.Close();
                 }
