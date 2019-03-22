@@ -6,7 +6,7 @@
     ScheduleRecipeContainer container = Model;
 }
 <div>
-    Your <a style="color: #383838; font-weight: bold; text-decoration: none" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))">Meal Plan</a> for
+    Your <a style="color: #0a0a0a; font-weight: bold; text-decoration: none" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))">Meal Plan</a> for
     next week (@(container.Schedule[0].Date.ToString("MM/dd"))-@(container.Schedule[6].Date.ToString("MM/dd"))) is ready to go.<br />
 </div>
 <div style="text-align: left;">
@@ -14,21 +14,21 @@
     {
         if (day.Meals != null && day.Meals.Any())
         {
-            <a style="text-decoration: none; border: 0; color: #383838;" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))/@(day.Date.DayOfWeek.ToString().ToLower())">
-                <div style="color: #383838; font-weight: bold; font-size: 1.25em; padding-top: 35px">
+            <a style="text-decoration: none; border: 0; color: #0a0a0a;" href="https://www.greenerplate.com/schedule/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))/@(day.Date.DayOfWeek.ToString().ToLower())">
+                <div style="color: #0a0a0a; font-weight: bold; font-size: 1.25em; padding-top: 35px">
                     @day.Date.DayOfWeek.ToString()
                 </div>
-        
+
                 @foreach (MealDto meal in day.Meals)
                 {
                     if (meal.RecipeId != 0 && !meal.IsLeftovers)
                     {
-                    <div style="padding-bottom: 10px;">@(container.Recipes[meal.RecipeId].Name) - for @meal.MealType</div>
-                    <img src="https://s3-us-west-2.amazonaws.com/cutthemeat-recipe-images-dev/@(meal.RecipeId).jpeg" width="100%"/>
+                        <div style="padding-bottom: 10px;">@(container.Recipes[meal.RecipeId].Name) - for @meal.MealType</div>
+                        <img src="https://s3-us-west-2.amazonaws.com/cutthemeat-recipe-images-dev/@(meal.RecipeId).jpeg" width="100%" />
                     }
                     else
                     {
-                    <div style="padding-bottom: 10px;">Leftovers from @meal.Preparation.Date.DayOfWeek.ToString() for @meal.MealType</div>
+                        <div style="padding-bottom: 10px;">Leftovers from @meal.Preparation.Date.DayOfWeek.ToString() for @meal.MealType</div>
                     }
                 }
             </a>
@@ -36,9 +36,9 @@
     }
 </div>
 <div style="padding: 40px 0 20px;">
-    <a style="text-decoration: none; color: #383838;" href="https://www.greenerplate.com/shopping_list/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))">
+    <a style="text-decoration: none; color: #0a0a0a;" href="https://www.greenerplate.com/shopping_list/week/@(container.Schedule[0].Date.ToString("yyyy-MM-dd"))">
         <div style="font-weight: bold; font-size: 1.25em; padding-bottom: 10px;">
-                Your Shopping List
+            Your Shopping List
         </div>
         Check for things you already have in your pantry or fridge. <br />
         Then, get your shopping out of the way early.<br />
