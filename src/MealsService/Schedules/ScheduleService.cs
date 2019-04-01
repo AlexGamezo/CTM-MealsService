@@ -577,9 +577,9 @@ namespace MealsService.Services
 
         public async Task<bool> SendNextWeekScheduleAsync(UserDto user)
         {
-            var context = _serviceProvider.GetService<RequestContext>();
-            var zone = context.Dtz;
-            var nowDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date.PlusDays(7);
+            var nowDate = SystemClock.Instance.GetCurrentInstant()
+                            .InZone(DateTimeZoneProviders.Tzdb.GetZoneOrNull(RequestContext.DEFAULT_TIMEZONE))
+                            .Date.PlusDays(7);
 
             var schedule = (await GetScheduleAsync(user.UserId, nowDate.GetWeekStart(), nowDate.GetWeekStart().PlusDays(6)))
                 .Select(ToScheduleDayDto)

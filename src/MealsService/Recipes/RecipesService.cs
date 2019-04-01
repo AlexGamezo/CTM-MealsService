@@ -44,7 +44,7 @@ namespace MealsService.Recipes
             _region = options.Value.Region;
         }
 
-        public List<RecipeDto> ListRecipes(ListRecipesRequest request)
+        public List<RecipeDto> ListRecipes(ListRecipesRequest request, int userId = 0)
         {
             IEnumerable<Recipe> search = _dbContext.Recipes
                 .Include(m => m.RecipeIngredients)
@@ -79,7 +79,17 @@ namespace MealsService.Recipes
                 }
             }
 
-            return search.ToList().Select(ToRecipeDto).ToList();
+            if (userId > 0)
+            {
+                search.ToList().ForEach(recipe =>
+                    _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
+            }
+            else
+            {
+                search = search.ToList();
+            }
+
+            return search.Select(ToRecipeDto).ToList();
         }
 
         public RecipeDto GetRecipe(int id, int userId = 0)

@@ -26,7 +26,7 @@ namespace MealsService.Recipes
         [HttpPost("list")]
         public IActionResult List([FromBody]ListRecipesRequest request)
         {
-            var recipes = _recipesService.ListRecipes(request);
+            var recipes = _recipesService.ListRecipes(request, AuthorizedUser);
             
             return Json(new SuccessResponse<object>(new 
             {

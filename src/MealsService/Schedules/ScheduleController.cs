@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using MealsService.Common;
 using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
+using MealsService.Email;
 using MealsService.Infrastructure;
 using MealsService.Responses;
 using MealsService.Services;
@@ -41,6 +42,15 @@ namespace MealsService.Controllers
             var success = await _scheduleService.SendNextWeekScheduleNotifications();
 
             return Json(success ? (object)new SuccessResponse() : new ErrorResponse("Could not send message", 500));
+        }
+
+        [Route("email/test"), HttpPost]
+        public async Task<IActionResult> TestEmail()
+        {
+            var success = await _serviceProvider.GetService<EmailService>()
+                .SendEmail("Test", "alex@agamezo.com", "Test Email - 3/31/2019", "Alex Gamezo");
+
+            return Json(success ? (object) new SuccessResponse() : new ErrorResponse("Could not send message", 500));
         }
 
         [Authorize]
