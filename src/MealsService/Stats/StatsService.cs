@@ -43,7 +43,7 @@ namespace MealsService.Stats
 
             var summary = GetSummaryStats(userId);
 
-            if (summary.NumMeals == 0)
+            if (summary == null || summary.NumMeals == 0)
             {
                 statementsQuery = statementsQuery.Where(s => s.CalcType == CalculationType.STATIC);
             }
