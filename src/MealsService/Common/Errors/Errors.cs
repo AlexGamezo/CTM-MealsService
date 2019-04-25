@@ -18,9 +18,10 @@ namespace MealsService.Common.Errors
         public static ServiceException InvalidFileTypeUploaded = new ServiceException("Allowed types are PNG, JPEG, BMP", 1001, HttpStatusCode.UnsupportedMediaType);
     }
 
-    public static class Recipes
+    public static class RecipeErrors
     {
         public static ServiceException RecipeUpdateFailed = new ServiceException("Could not update recipe image", 2001);
+        public static ServiceException RecipeVoteFailed = new ServiceException("Could not update your vote", 2002);
     }
 
     public static class SubscriptionErrors

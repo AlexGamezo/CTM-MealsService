@@ -160,8 +160,8 @@ namespace MealsService.Diets
             var weeksPassed = (int)((whenInstant - dietGoal.NodaUpdated).TotalDays / 7);
 
             var scaled = dietGoal.Current + (weeksPassed / changeRate);
-
-            return changeRate > 0 ? Math.Min(scaled, dietGoal.Target) : Math.Max(scaled, dietGoal.Target);
+            
+            return Math.Clamp(changeRate >= 0 ? Math.Min(scaled, dietGoal.Target) : Math.Max(scaled, dietGoal.Target), 0, 7);
         }
 
         public List<int> GetChangeDays(int userId, LocalDate when)

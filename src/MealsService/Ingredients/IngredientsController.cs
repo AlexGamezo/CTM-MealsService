@@ -111,7 +111,7 @@ namespace MealsService.Ingredients
             }
             if (!await _ingredientsService.UpdateIngredientImage(ingredientId, imageFile))
             {
-                throw Common.Errors.Recipes.RecipeUpdateFailed;
+                throw Common.Errors.RecipeErrors.RecipeUpdateFailed;
             }
 
             return Json(new SuccessResponse());

@@ -4,18 +4,21 @@ using System.Net;
 using System.Threading.Tasks;
 using MealsService.Responses;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace MealsService.Common.Errors
 {
     public class JsonExceptionHandlerMiddleware
     {
         private readonly RequestDelegate _next;
+        private ILogger _logger;
 
-        public JsonExceptionHandlerMiddleware(
-            RequestDelegate next)
+        public JsonExceptionHandlerMiddleware(RequestDelegate next, ILoggerFactory loggerFactory)
         {
             _next = next;
+            _logger = loggerFactory.CreateLogger("Uncaught Exception");
         }
 
         public async Task Invoke(HttpContext context)
@@ -46,7 +49,8 @@ namespace MealsService.Common.Errors
                         new JsonSerializerSettings { Formatting = Formatting.Indented }));
                 }
 
-                Debug.WriteLine(e.ToString());
+                _logger.LogError(e.ToString());
+                _logger.LogError(e.StackTrace);
             }
         }
     }

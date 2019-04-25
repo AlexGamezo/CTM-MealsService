@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
+using MealsService.Common.Errors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -357,7 +358,7 @@ namespace MealsService.Recipes
             }).ToList();
         }
 
-        public async Task<bool> VoteAsync(int recipeId, int userId, RecipeVote.VoteType voteValue)
+        public async Task<RecipeVoteResponse> VoteAsync(int recipeId, int userId, RecipeVote.VoteType voteValue)
         {
             var vote = _dbContext.RecipeVotes.FirstOrDefault(rv => rv.UserId == userId && rv.RecipeId == recipeId);
 
@@ -371,7 +372,18 @@ namespace MealsService.Recipes
 
             var success = _dbContext.Entry(vote).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
 
+            if (!success)
+            {
+                throw RecipeErrors.RecipeVoteFailed;
+            }
+
             var likes = _dbContext.RecipeVotes.Count(v => v.UserId == userId && v.Vote == RecipeVote.VoteType.LIKE);
+
+            var response = new RecipeVoteResponse
+            {
+                RecipeId = recipeId,
+                Vote = voteValue,
+            };
 
             if (likes <= 1)
             {
@@ -381,9 +393,11 @@ namespace MealsService.Recipes
                     Completed = likes == 1
                 };
                 await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
+
+                response.JourneyUpdated = true;
             }
 
-            return success;
+            return response;
         }
 
         private string GetRecipeImageUrl(string filename)

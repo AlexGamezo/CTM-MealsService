@@ -75,9 +75,7 @@ namespace MealsService.Recipes
 
             Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out userId);
 
-            await _recipesService.VoteAsync(id, userId, request.Vote);
-
-            return Json(new SuccessResponse());
+            return Json(await _recipesService.VoteAsync(id, userId, request.Vote));
         }
 
         [Authorize, AdminRequiredFilter]
