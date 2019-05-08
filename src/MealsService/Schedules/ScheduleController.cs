@@ -98,7 +98,7 @@ namespace MealsService.Controllers
                 recipes
             }));
         }
-
+        
         [Authorize]
         [Route("me/slots/{preparationId:int}/recycles"), HttpPost]
         public async Task<IActionResult> RegenerateSlot(int preparationId) 
@@ -142,6 +142,30 @@ namespace MealsService.Controllers
             {
                 Response.StatusCode = (int) HttpStatusCode.InternalServerError;
                 return Json(new ErrorResponse("Failed to update slot", 500));
+            }
+
+            return Json(new SuccessResponse());
+        }
+        
+        [Authorize]
+        [Route("me/preparations/{prepId:int}"), HttpPatch]
+        [Route("{userId:int}/preparations/{prepId:int}"), HttpPatch]
+        public async Task<IActionResult> UpdatePrep(int userId, int prepId, [FromBody]PreparationPatchRequest request)
+        {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+
+            var success = false;
+
+            if (request.Op == PreparationPatchRequest.Operation.MovePreparation)
+            {
+                await _scheduleService.MovePreparationAsync(userId, prepId, request.ScheduleDayId);
+            }
+            else if (request.Op == PreparationPatchRequest.Operation.SetRecipe)
+            {
+                await _scheduleService.SetPreparationRecipeAsync(userId, prepId, request.RecipeId);
             }
 
             return Json(new SuccessResponse());

@@ -18,10 +18,10 @@ using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
 using MealsService.Stats;
-using MealsService.Subscriptions.Models;
 using MealsService.Users;
 using MealsService.Users.Data;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NodaTime;
 
 namespace MealsService.Services
@@ -34,6 +34,8 @@ namespace MealsService.Services
         private SubscriptionsService _subscriptionsService;
         private IServiceProvider _serviceProvider;
 
+        private ILogger<ScheduleService> _logger;
+
         private Random _rand;
 
         public ScheduleService(MealsDbContext dbContext, DietService dietService, SubscriptionsService subscriptionService, IServiceProvider serviceProvider)
@@ -43,6 +45,8 @@ namespace MealsService.Services
             _dietService = dietService;
             _subscriptionsService = subscriptionService;
             _serviceProvider = serviceProvider;
+
+            _logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<ScheduleService>();
 
             _rand = new Random();
         }
@@ -136,6 +140,35 @@ namespace MealsService.Services
             _dbContext.SaveChanges();
 
             return true;
+        }
+
+        public async Task SetPreparationRecipeAsync(int userId, int prepId, int recipeId)
+        {
+            var currentPrep = _dbContext.Preparations
+                .Include(s => s.ScheduleDay)
+                .Include(p => p.Meals)
+                .FirstOrDefault(s => s.Id == prepId);
+
+            if (currentPrep == null)
+            {
+                throw ScheduleErrors.MissingPreparation;
+            }
+
+            if (currentPrep.ScheduleDay.UserId != userId)
+            {
+                throw ScheduleErrors.InvalidTargetByUser;
+            }
+
+            var weekStart = currentPrep.ScheduleDay.NodaDate.GetWeekStart();
+
+            var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+            shoppingListService.HandlePreparationsRemoved(userId, new List<Preparation> { currentPrep });
+
+            currentPrep.RecipeId = recipeId;
+            currentPrep.Meals.ForEach(m => m.RecipeId = recipeId);
+            _dbContext.SaveChanges();
+
+            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<Preparation> { currentPrep }, weekStart);
         }
 
         public async Task<bool> MovePreparationAsync(int userId, int prepId, int dayId)
@@ -577,24 +610,34 @@ namespace MealsService.Services
 
         public async Task<bool> SendNextWeekScheduleAsync(UserDto user)
         {
-            var nowDate = SystemClock.Instance.GetCurrentInstant()
-                            .InZone(DateTimeZoneProviders.Tzdb.GetZoneOrNull(RequestContext.DEFAULT_TIMEZONE))
-                            .Date.PlusDays(7);
-
-            var schedule = (await GetScheduleAsync(user.UserId, nowDate.GetWeekStart(), nowDate.GetWeekStart().PlusDays(6)))
-                .Select(ToScheduleDayDto)
-                .ToList();
-            var recipeIds = schedule.SelectMany(d => d.Meals?.Select(m => m.RecipeId).ToList() ?? new List<int>()).ToList();
-
-            var model = new ScheduleRecipeContainer
+            try
             {
-                Schedule = schedule,
-                Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds,0, false)
-                    .ToDictionary(r => r.Id, r => r)
-            };
+                var nowDate = SystemClock.Instance.GetCurrentInstant()
+                    .InZone(DateTimeZoneProviders.Tzdb.GetZoneOrNull(RequestContext.DEFAULT_TIMEZONE))
+                    .Date.PlusDays(7);
 
-            return await _serviceProvider.GetService<EmailService>()
-                .SendEmail("MealPlanReady", user.Email, "Your meals for next week are ready", user.FullName, model);
+                var schedule =
+                    (await GetScheduleAsync(user.UserId, nowDate.GetWeekStart(), nowDate.GetWeekStart().PlusDays(6)))
+                    .Select(ToScheduleDayDto)
+                    .ToList();
+                var recipeIds = schedule.SelectMany(d => d.Meals?.Select(m => m.RecipeId).ToList() ?? new List<int>())
+                    .ToList();
+
+                var model = new ScheduleRecipeContainer
+                {
+                    Schedule = schedule,
+                    Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds, 0, false)
+                        .ToDictionary(r => r.Id, r => r)
+                };
+
+                return await _serviceProvider.GetService<EmailService>()
+                    .SendEmail("MealPlanReady", user.Email, "Your meals for next week are ready", user.FullName, model);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Failed to send next week schedule for user {0}", user.UserId);
+                return false;
+            }
         }
 
         public ScheduleDayDto ToScheduleDayDto(ScheduleDay day)
