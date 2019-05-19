@@ -9,6 +9,8 @@ namespace MealsService.Tags.Data
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
+
+        [StringLength(60)]
         public string Name { get; set; }
     }
 }

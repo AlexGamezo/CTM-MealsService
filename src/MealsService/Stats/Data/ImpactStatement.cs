@@ -1,5 +1,6 @@
 ﻿
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using Newtonsoft.Json;
@@ -43,10 +44,13 @@ namespace MealsService.Stats.Data
 
         public CalculationType CalcType { get; set; }
 
+        [StringLength(255)]
         public string RefUrl { get; set; }
 
+        [StringLength(128)]
         public string Alt { get; set; }
 
+        [StringLength(255)]
         public string Text { get; set; }
 
         public string ParametersRaw { get; set; }

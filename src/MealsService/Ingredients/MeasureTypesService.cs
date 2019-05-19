@@ -10,6 +10,8 @@ namespace MealsService.Ingredients
     {
         private MealsDbContext _dbContext;
 
+        public MeasureType DefaultMeasureType => ListAvailableTypes().First(m => m.Short == "oz");
+
         public MeasureTypesService(MealsDbContext dbContext)
         {
             _dbContext = dbContext;

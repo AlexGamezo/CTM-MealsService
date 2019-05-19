@@ -7,19 +7,22 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
-using MealsService.Common.Errors;
+using Enyim.Caching;
+using MealsService.Common;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 
+using MealsService.Common.Errors;
 using MealsService.Configurations;
+using MealsService.Ingredients;
 using MealsService.Ingredients.Data;
 using MealsService.Requests;
 using MealsService.Recipes.Dtos;
 using MealsService.Recipes.Data;
 using MealsService.Users;
 using MealsService.Users.Data;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MealsService.Recipes
 {
@@ -30,45 +33,69 @@ namespace MealsService.Recipes
 
         private const int JOURNEY_FAVORITES_ID = 3;
 
-        private MealsDbContext _dbContext;
         private IAmazonS3 _s3Client;
 
+        private RecipeRepository _repository;
+        private IngredientsService _ingredientsService;
         private IServiceProvider _serviceProvider;
 
-        public RecipesService(MealsDbContext dbContext, IAmazonS3 s3Client, IOptions<AWSConfiguration> options, IServiceProvider serviceProvider)
+        private IMemoryCache _localCache;
+        private IMemcachedClient _memcache;
+
+        private const int RECIPE_CACHE_TTL_SECONDS = 900;
+        private const int VOTES_CACHE_TTL_SECONDS = 900;
+
+        public RecipesService(IngredientsService ingredientsService, IAmazonS3 s3Client, IOptions<AWSConfiguration> options, IServiceProvider serviceProvider)
         {
-            _dbContext = dbContext;
+            _repository = new RecipeRepository(serviceProvider);
+
             _serviceProvider = serviceProvider;
+            _ingredientsService = ingredientsService;
+
+            _localCache = _serviceProvider.GetService<IMemoryCache>();
+            _memcache = _serviceProvider.GetService<IMemcachedClient>();
 
             _s3Client = s3Client;
             _recipeImagesBucketName = options.Value.RecipeImagesBucket;
             _region = options.Value.Region;
         }
 
-        public List<RecipeDto> ListRecipes(ListRecipesRequest request, int userId = 0)
+        private List<Recipe> ListRecipesInternal(bool skipCache = false, bool includeDeleted = false)
         {
-            IEnumerable<Recipe> search = _dbContext.Recipes
-                .Include(m => m.RecipeIngredients)
-                    .ThenInclude(mi => mi.Ingredient)
-                    .ThenInclude(i => i.IngredientCategory)
-                .Include(m => m.Steps)
-                .Include(m => m.RecipeDietTypes);
+            if (skipCache || includeDeleted)
+            {
+                return _repository.ListRecipes(includeDeleted);
+            }
+
+            var recipes = _localCache.GetOrCreate(CacheKeys.Recipes.AllRecipes, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(RECIPE_CACHE_TTL_SECONDS);
+                return _repository.ListRecipes();
+            });
+
+            return recipes;
+        }
+
+        public List<RecipeDto> ListRecipes(ListRecipesRequest request)
+        {
+            IEnumerable<Recipe> recipes = null;
 
             if (request.RecipeIds.Any())
             {
-                search = search.Where(m => request.RecipeIds.Contains(m.Id));
+                recipes = FindRecipes(request.RecipeIds).AsEnumerable();
             }
             else
             {
+                recipes = ListRecipesInternal(includeDeleted: request.IncludeDeleted).AsEnumerable();
                 if (!string.IsNullOrEmpty(request.Search))
                 {
-                    search = search.Where(m => m.Name.Contains(request.Search));
+                    recipes = recipes.Where(m => m.Name.Contains(request.Search));
                 }
                 if (request.IngredientIds != null && request.IngredientIds.Any())
                 {
                     var ingIds = request.IngredientIds;
 
-                    search = search.Where(m =>
+                    recipes = recipes.Where(m =>
                     {
                         var matchedIngredients = m.RecipeIngredients.Count(mi => ingIds.Contains(mi.IngredientId));
                         return request.AllIngredients ? matchedIngredients == ingIds.Count : matchedIngredients > 0;
@@ -76,73 +103,127 @@ namespace MealsService.Recipes
                 }
                 if (request.MealType != MealType.Any)
                 {
-                    search = search.Where(m => m.MealType == request.MealType);
+                    recipes = recipes.Where(m => m.MealType == request.MealType);
                 }
             }
-
-            if (userId > 0)
-            {
-                search.ToList().ForEach(recipe =>
-                    _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
-            }
-            else
-            {
-                search = search.ToList();
-            }
-
-            return search.Select(ToRecipeDto).ToList();
-        }
-
-        public RecipeDto GetRecipe(int id, int userId = 0)
-        {
-            return GetRecipes(new[] {id}, userId)
-                .FirstOrDefault(m => m.Id == id);
-        }
-
-        public RecipeDto GetBySlug(string slug, int userId = 0)
-        {
-            return FindRecipesBySlug(new[] {slug}, userId)
-                .Select(ToRecipeDto).FirstOrDefault();
-        }
-
-        public List<Recipe> FindRecipesBySlug(IEnumerable<string> slugs, int userId = 0)
-        {
-            var recipeIds = _dbContext.Recipes.Where(r => slugs.Contains(r.Slug))
-                .ToList().Select(r => r.Id);
-
-            return FindRecipes(recipeIds, userId);
-        }
-
-        public List<RecipeDto> GetRecipes(IEnumerable<int> ids, int userId = 0, bool includeIngredients = true)
-        {
-            var recipes = FindRecipes(ids, userId, includeIngredients);
 
             return recipes.Select(ToRecipeDto).ToList();
         }
 
-        public List<Recipe> FindRecipes(IEnumerable<int> ids, int userId = 0, bool includeIngredients = true)
+        public async Task<List<RecipeDto>> ListRecipesAsync(ListRecipesRequest request, int userId = 0)
         {
-            IQueryable<Recipe> recipes = _dbContext.Recipes;
-
-            if (includeIngredients)
-            {
-                recipes = recipes.Include(m => m.RecipeIngredients)
-                        .ThenInclude(mi => mi.Ingredient)
-                        .ThenInclude(i => i.IngredientCategory)
-                        .Include(m => m.RecipeIngredients)
-                        .ThenInclude(mi => mi.MeasureType);
-            }
-            recipes = recipes.Include(m => m.RecipeDietTypes)
-                .Include(m => m.Steps)
-                .Where(m => ids.Contains(m.Id));
+            var recipeDtos = ListRecipes(request);
 
             if (userId > 0)
             {
-                recipes.ToList().ForEach(recipe =>
-                    _dbContext.Entry(recipe).Collection(r => r.Votes).Query().Where(v => v.UserId == userId).Load());
+                await HydrateRecipeVoteAsync(recipeDtos, userId);
             }
 
-            return recipes.ToList();
+            return recipeDtos;
+        }
+
+        private async Task HydrateRecipeVoteAsync(IEnumerable<RecipeDto> recipes, int userId)
+        {
+            var votes = (await GetVotesAsync(userId)).ToDictionary(v => v.RecipeId, v => v);
+
+            foreach (var recipe in recipes)
+            {
+                if (votes.ContainsKey(recipe.Id))
+                {
+                    recipe.Vote = votes[recipe.Id].Vote;
+                }
+            }
+        }
+
+        /*public List<RecipeVote> GetVotes(int userId)
+        {
+            return _repository.GetUserVotes(userId);
+        }*/
+        
+        public async Task<List<RecipeVoteDto>> GetVotesAsync(int userId, bool skipCache = false)
+        {
+            if (skipCache)
+            {
+                var votes = GetVotesInternal(userId);
+
+                return votes.Select(v => new RecipeVoteDto
+                {
+                    RecipeId = v.RecipeId,
+                    Vote = v.Vote
+                }).ToList();
+            }
+
+            return await _memcache.GetValueOrCreateAsync(CacheKeys.Recipes.UserVotes(userId), VOTES_CACHE_TTL_SECONDS, () =>
+            {
+                var votes = GetVotesInternal(userId);
+
+                return Task.FromResult(votes.Select(v => new RecipeVoteDto
+                {
+                    RecipeId = v.RecipeId,
+                    Vote = v.Vote
+                }).ToList());
+            });
+        }
+
+        public RecipeDto GetRecipe(int id)
+        {
+            return GetRecipes(new[] {id}).FirstOrDefault();
+        }
+        public async Task<RecipeDto> GetRecipeAsync(int id, int userId = 0)
+        {
+            return (await GetRecipesAsync(new[] {id}, userId)).FirstOrDefault();
+        }
+
+        public RecipeDto GetBySlug(string slug)
+        {
+            return FindRecipesBySlug(new[] { slug })
+                .Select(ToRecipeDto).FirstOrDefault();
+        }
+
+        public async Task<RecipeDto> GetBySlugAsync(string slug, int userId = 0)
+        {
+            var recipe = GetBySlug(slug);
+
+            if (userId > 0)
+            {
+                await HydrateRecipeVoteAsync(new [] {recipe}, userId);
+            }
+
+            return recipe;
+        }
+
+        public List<Recipe> FindRecipesBySlug(IEnumerable<string> slugs)
+        {
+            return ListRecipesInternal().Where(r => slugs.Contains(r.Slug)).ToList();
+        }
+
+        public List<RecipeDto> GetRecipes(IEnumerable<int> ids)
+        {
+            return FindRecipes(ids).Select(ToRecipeDto).ToList();
+        }
+
+        public async Task<List<RecipeDto>> GetRecipesAsync(IEnumerable<int> ids, int userId = 0)
+        {
+            var recipes = GetRecipes(ids);
+            
+            if (userId > 0)
+            {
+                await HydrateRecipeVoteAsync(recipes, userId);
+            }
+
+            return recipes;
+        }
+
+        public Recipe FindRecipeById(int id)
+        {
+            return FindRecipes(new List<int> {id}).FirstOrDefault();
+        }
+
+        public List<Recipe> FindRecipes(IEnumerable<int> ids)
+        {
+            var recipes = ListRecipesInternal().AsEnumerable();
+
+            return recipes.Where(m => ids.Contains(m.Id)).ToList();
         }
 
         public RecipeDto UpdateRecipe(int id, UpdateRecipeRequest request)
@@ -155,16 +236,11 @@ namespace MealsService.Recipes
 
             if (id > 0)
             {
-                recipe = _dbContext.Recipes
-                .Include(m => m.RecipeIngredients)
-                .Include(m => m.Steps)
-                .Include(m => m.RecipeDietTypes)
-                .FirstOrDefault(m => m.Id == id);
+                recipe = FindRecipeById(id);
             }
             else
             {
                 recipe = new Recipe();
-                _dbContext.Recipes.Add(recipe);
             }
 
             recipe.Name = request.Name;
@@ -176,11 +252,6 @@ namespace MealsService.Recipes
             else if(string.IsNullOrEmpty(recipe.Slug))
             {
                 recipe.Slug = GenerateSlug(request.Name, id);
-
-                if (recipe.Slug == null)
-                {
-                    //TODO: Throw appropriate exception to be shown
-                }
             }
 
             recipe.Brief = request.Brief;
@@ -192,120 +263,10 @@ namespace MealsService.Recipes
             recipe.MealType = recipeType;
             recipe.Source = request.Source;
 
-            for (var i = 0; i < request.DietTypeIds.Count; i++)
-            {
-                if (recipe.RecipeDietTypes?.Count > i)
-                {
-                    if (recipe.RecipeDietTypes[i].DietTypeId != request.DietTypeIds[i])
-                    {
-                        recipe.RecipeDietTypes[i].DietTypeId = request.DietTypeIds[i];
-                        changes = true;
-                    }
-                }
-                else
-                {
-                    changes = true;
-                    if (recipe.RecipeDietTypes == null)
-                    {
-                        recipe.RecipeDietTypes = new List<RecipeDietType>();
-                    }
-                    recipe.RecipeDietTypes.Add(new RecipeDietType {DietTypeId = request.DietTypeIds[i]});
-                }
-            }
-            if (request.DietTypeIds?.Count < recipe.RecipeDietTypes.Count)
-            {
-                var countToRemove = recipe.RecipeDietTypes.Count - request.DietTypeIds.Count;
-                var toDelete = recipe.RecipeDietTypes.GetRange(request.DietTypeIds.Count, countToRemove);
-
-                changes = true;
-                _dbContext.RecipeDietTypes.RemoveRange(toDelete);
-            }
-
-            for (var i = 0; i < request.Ingredients.Count; i++)
-            {
-                if (recipe.RecipeIngredients?.Count > i)
-                {
-                    if (recipe.RecipeIngredients[i].IngredientId != request.Ingredients[i].IngredientId)
-                    {
-                        recipe.RecipeIngredients[i].IngredientId = request.Ingredients[i].IngredientId;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].Amount != request.Ingredients[i].Quantity)
-                    {
-                        recipe.RecipeIngredients[i].Amount = request.Ingredients[i].Quantity;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].AmountType != request.Ingredients[i].Measure)
-                    {
-                        recipe.RecipeIngredients[i].AmountType = request.Ingredients[i].Measure;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].MeasureTypeId != request.Ingredients[i].MeasureTypeId)
-                    {
-                        recipe.RecipeIngredients[i].MeasureTypeId = request.Ingredients[i].MeasureTypeId;
-                        changes = true;
-                    }
-                }
-                else
-                {
-                    changes = true;
-                    if (recipe.RecipeIngredients == null)
-                    {
-                        recipe.RecipeIngredients = new List<RecipeIngredient>();
-                    }
-                    recipe.RecipeIngredients.Add(new RecipeIngredient
-                    {
-                        IngredientId = request.Ingredients[i].IngredientId,
-                        Amount = request.Ingredients[i].Quantity,
-                        AmountType = request.Ingredients[i].Measure,
-                        MeasureTypeId = request.Ingredients[i].MeasureTypeId
-                    });
-                }
-            }
-            if (request.Ingredients.Count < recipe.RecipeIngredients.Count)
-            {
-                var countToRemove = recipe.RecipeIngredients.Count - request.Ingredients.Count;
-                var toDelete = recipe.RecipeIngredients.GetRange(request.Ingredients.Count, countToRemove);
-
-                changes = true;
-                _dbContext.RecipeIngredients.RemoveRange(toDelete);
-            }
-
-            for (var i = 0; i < request.Steps.Count; i++)
-            {
-                if (recipe.Steps?.Count > i)
-                {
-                    if (recipe.Steps[i].Text != request.Steps[i].Text)
-                    {
-                        recipe.Steps[i].Text = request.Steps[i].Text;
-                        changes = true;
-                    }
-                    if (recipe.Steps[i].Order != request.Steps[i].Order)
-                    {
-                        recipe.Steps[i].Order = request.Steps[i].Order;
-                        changes = true;
-                    }
-                }
-                else
-                {
-                    changes = true;
-                    if (recipe.Steps == null)
-                    {
-                        recipe.Steps = new List<RecipeStep>();
-                    }
-                    recipe.Steps.Add(new RecipeStep { Text = request.Steps[i].Text, Order = request.Steps[i].Order });
-                }
-            }
-            if (request.Steps.Count < recipe.Steps.Count)
-            {
-                var countToRemove = recipe.Steps.Count - request.Steps.Count;
-                var toDelete = recipe.Steps.GetRange(request.Steps.Count, countToRemove);
-
-                changes = true;
-                _dbContext.RecipeSteps.RemoveRange(toDelete);
-            }
-
-            if ((_dbContext.Entry(recipe).State == EntityState.Unchanged && !changes) || _dbContext.SaveChanges() > 0)
+            if (_repository.SaveRecipe(recipe) &&
+                _repository.SetDietTypes(recipe, request.DietTypeIds) &&
+                _repository.SetRecipeIngredients(recipe, request.Ingredients) &&
+                _repository.SetRecipeSteps(recipe, request.Steps))
             {
                 return GetRecipe(recipe.Id);
             }
@@ -314,9 +275,9 @@ namespace MealsService.Recipes
         }
 
         //TODO: Extract "ImageService" to upload images, specifying the bucket
-        public async Task<bool> UpdateRecipeImage(int recipeId, IFormFile avatarFile)
+        public async Task<bool> UpdateRecipeImageAsync(int recipeId, IFormFile avatarFile)
         {
-            var foundRecipe = _dbContext.Recipes.FirstOrDefault(p => p.Id == recipeId);
+            var foundRecipe = FindRecipeById(recipeId);
             var extension = avatarFile.ContentType.Substring(avatarFile.ContentType.IndexOf("/") + 1);
             var avatarFilename = recipeId + "." + extension;
             var stream = new MemoryStream();
@@ -339,7 +300,8 @@ namespace MealsService.Recipes
             if (response.HttpStatusCode == HttpStatusCode.OK)
             {
                 foundRecipe.Image = GetRecipeImageUrl(avatarFilename);
-                return _dbContext.Entry(foundRecipe).State == EntityState.Unchanged || _dbContext.SaveChanges() == 1;
+                
+                return _repository.SaveRecipe(foundRecipe);
             }
             else
             {
@@ -347,37 +309,31 @@ namespace MealsService.Recipes
             }
         }
 
-        public List<RecipeVoteDto> GetVotes(int userId)
+        public List<RecipeVote> GetVotesInternal(int userId)
         {
-            var votes = _dbContext.RecipeVotes.Where(rv => rv.UserId == userId).ToList();
-
-            return votes.Select(v => new RecipeVoteDto
-            {
-                RecipeId = v.RecipeId,
-                Vote = v.Vote
-            }).ToList();
+            return _repository.GetUserVotes(userId);
         }
 
         public async Task<RecipeVoteResponse> VoteAsync(int recipeId, int userId, RecipeVote.VoteType voteValue)
         {
-            var vote = _dbContext.RecipeVotes.FirstOrDefault(rv => rv.UserId == userId && rv.RecipeId == recipeId);
+            var vote = GetVotesInternal(userId).FirstOrDefault(rv => rv.RecipeId == recipeId);
 
             if (vote == null)
             {
                 vote = new RecipeVote {UserId = userId, RecipeId = recipeId };
-                _dbContext.RecipeVotes.Add(vote);
             }
 
             vote.Vote = voteValue;
 
-            var success = _dbContext.Entry(vote).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+            var success = _repository.SaveVote(vote);
+            ClearVoteCache(userId);
 
             if (!success)
             {
                 throw RecipeErrors.RecipeVoteFailed;
             }
 
-            var likes = _dbContext.RecipeVotes.Count(v => v.UserId == userId && v.Vote == RecipeVote.VoteType.LIKE);
+            var likes = (await GetVotesAsync(userId)).Count(v => v.Vote == RecipeVote.VoteType.LIKE);
 
             var response = new RecipeVoteResponse
             {
@@ -422,27 +378,30 @@ namespace MealsService.Recipes
                     testSlug = $"baseSlug-{i}";
                 }
 
-                if (_dbContext.Recipes.Any(m => m.Slug == testSlug && id != m.Id))
+                if (FindRecipesBySlug(new List<string>{testSlug}).All(r => id != r.Id))
                 {
                     return testSlug;
                 }
             }
 
-            return null;
+            throw RecipeErrors.FailedToGenerateSlug;
         }
 
         public bool Remove(int id)
         {
-            _dbContext.RecipeIngredients.RemoveRange(_dbContext.RecipeIngredients.Where(mi => mi.RecipeId == id));
-            _dbContext.RecipeSteps.RemoveRange(_dbContext.RecipeSteps.Where(s =>  s.RecipeId == id));
-            _dbContext.Recipes.Remove(_dbContext.Recipes.First(m => m.Id == id));
-            
-            foreach (var slot in _dbContext.Meals.Where(s => s.RecipeId == id))
+            if (_repository.DeleteRecipe(id))
             {
-                slot.RecipeId = 0;
+                _localCache.Remove(CacheKeys.Recipes.AllRecipes);
+
+                return true;
             }
 
-            return _dbContext.SaveChanges() > 0;
+            return false;
+
+            /*foreach (var slot in _dbContext.Meals.Where(s => s.RecipeId == id))
+            {
+                slot.RecipeId = 0;
+            }*/
         }
 
         public List<RecipeIngredientDto> ConvertMeasureType(List<RecipeIngredient> recipeIngredients, MeasureSystem system = MeasureSystem.IMPERIAL)
@@ -455,6 +414,92 @@ namespace MealsService.Recipes
             }
 
             return dtos;
+        }
+
+        public RecipeDto GetRandomRecipe(RandomRecipeRequest request, Dictionary<int, int> recipeWeights = null)
+        {
+            request.ExcludeTags = request.ExcludeTags?.Select(g => g.ToLower()).ToList();
+
+            //TODO: Add tags to recipes, specific to the recipe, but also pulled up from the ingredients
+            //TODO: Refactor to use recipe's tags instead of ingredients
+            //TODO: Don't count optional ingredients, once there is such a thing
+            var excludedIngredientIds = new List<int>();
+
+            if (request.ExcludeTags != null && request.ExcludeTags.Any())
+            {
+                excludedIngredientIds = _ingredientsService.GetIngredientsByTags(request.ExcludeTags)
+                    .Select(i => i.Id)
+                    .ToList();
+            }
+
+            var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList() : new List<int>();
+
+            var sortedRecipes = (ListRecipes(new ListRecipesRequest { MealType = MealType.Dinner }))
+                //TODO: Fix
+                .Where(m => (request.DietTypeId == 0 || m.DietTypes.Contains(request.DietTypeId)))
+                //Exclude any recipes that have ingredients that were requested to be excluded
+                .Where(m => m.Ingredients.All(mi => !excludedIngredientIds.Contains(mi.IngredientId)))
+                //Sort recipes that have the requested ingredients to the top
+                .OrderBy(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.IngredientId)))
+                //Preference the recipes that haven't been used yet
+                .ThenBy(m => recipeWeights != null && recipeWeights.ContainsKey(m.Id) ? recipeWeights[m.Id] : 0);
+
+            var rand = new Random();
+            var countDiff = sortedRecipes.Count() - sortedRecipes.Count(r => recipeWeights != null && recipeWeights.ContainsKey(r.Id));
+            var index = countDiff > 0 ? rand.Next(countDiff) : rand.Next(sortedRecipes.Count());
+
+            var recipe = sortedRecipes.Skip(index).FirstOrDefault();
+
+            //TODO: Add logger
+            /*if (recipe == null)
+            {
+                throw new Exception("No recipes for type " + request.MealType);
+            }*/
+
+            return recipe;
+        }
+
+        public async Task<RecipeDto> GetRandomRecipeAsync(RandomRecipeRequest request, Dictionary<int, int> recipeWeights = null)
+        {
+            request.ExcludeTags = request.ExcludeTags?.Select(g => g.ToLower()).ToList();
+
+            //TODO: Add tags to recipes, specific to the recipe, but also pulled up from the ingredients
+            //TODO: Refactor to use recipe's tags instead of ingredients
+            //TODO: Don't count optional ingredients, once there is such a thing
+            var excludedIngredientIds = new List<int>();
+
+            if (request.ExcludeTags != null && request.ExcludeTags.Any())
+            {
+                excludedIngredientIds = _ingredientsService.GetIngredientsByTags(request.ExcludeTags)
+                    .Select(i => i.Id)
+                    .ToList();
+            }
+
+            var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList() : new List<int>();
+
+            var sortedRecipes = (await ListRecipesAsync(new ListRecipesRequest { MealType = MealType.Dinner }))
+                //TODO: Fix
+                .Where(m => (request.DietTypeId == 0 || m.DietTypes.Contains(request.DietTypeId)))
+                //Exclude any recipes that have ingredients that were requested to be excluded
+                .Where(m => m.Ingredients.All(mi => !excludedIngredientIds.Contains(mi.IngredientId)))
+                //Sort recipes that have the requested ingredients to the top
+                .OrderBy(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.IngredientId)))
+                //Preference the recipes that haven't been used yet
+                .ThenBy(m => recipeWeights != null && recipeWeights.ContainsKey(m.Id) ? recipeWeights[m.Id] : 0);
+
+            var rand = new Random();
+            var countDiff = sortedRecipes.Count() - sortedRecipes.Count(r => recipeWeights != null && recipeWeights.ContainsKey(r.Id));
+            var index = countDiff > 0 ? rand.Next(countDiff) : rand.Next(sortedRecipes.Count());
+
+            var recipe = sortedRecipes.Skip(index).FirstOrDefault();
+
+            //TODO: Add logger
+            /*if (recipe == null)
+            {
+                throw new Exception("No recipes for type " + request.MealType);
+            }*/
+
+            return recipe;
         }
 
         public RecipeDto ToRecipeDto(Recipe recipe)
@@ -474,7 +519,7 @@ namespace MealsService.Recipes
                 CookTime = recipe.CookTime,
                 PrepTime = recipe.PrepTime,
                 NumServings = recipe.NumServings,
-                MealType = recipe.MealType.ToString(),
+                MealType = recipe.MealType,
                 Source = recipe.Source,
                 Ingredients = recipe.RecipeIngredients?.Select(ToRecipeIngredientDto)
                                     .OrderByDescending(i => !string.IsNullOrEmpty(i.Image))
@@ -484,7 +529,8 @@ namespace MealsService.Recipes
                             .ToList(),
                 DietTypes = recipe.RecipeDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),
                 Vote = recipe.Votes != null && recipe.Votes.Any() ? recipe.Votes.First().Vote : RecipeVote.VoteType.UNKNOWN,
-                Slug = recipe.Slug
+                Slug = recipe.Slug,
+                IsDeleted = recipe.Deleted
             };
         }
 
@@ -508,6 +554,9 @@ namespace MealsService.Recipes
             };
         }
 
-
+        private void ClearVoteCache(int userId)
+        {
+            _memcache.Remove(CacheKeys.Recipes.UserVotes(userId));
+        }
     }
 }

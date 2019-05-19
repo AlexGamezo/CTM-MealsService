@@ -18,6 +18,8 @@ namespace MealsService.Recipes.Data
         public int RecipeId { get; set; }
         public int IngredientId { get; set; }
         public float Amount { get; set; }
+
+        [StringLength(32)]
         public string AmountType { get; set; }
         public int MeasureTypeId { get; set; }
 

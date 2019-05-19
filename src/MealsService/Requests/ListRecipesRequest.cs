@@ -19,5 +19,9 @@ namespace MealsService.Requests
         public bool AllIngredients = false;
 
         public List<int> RecipeIds = new List<int>();
+
+        public bool IncludeDeleted = false;
+
+        public int UserId;
     }
 }

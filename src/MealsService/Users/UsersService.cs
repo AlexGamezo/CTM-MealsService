@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -113,6 +114,36 @@ namespace MealsService.Users
                 }
             }
             catch (Exception e) { ; }
+
+            return null;
+        }
+
+        public async Task<List<UserDto>> GetActiveUsers(int count, int offset)
+        {
+            UTF8Encoding enc = new UTF8Encoding();
+
+            //Create request
+            var request = HttpWebRequest.Create(_servicesConfig.Value.Auth + $"profile/list?limit={count}&offset={offset}");
+            request.Method = "GET";
+            request.ContentType = "application/json";
+            request.PreAuthenticate = true;
+            request.Headers.Add("Authorization", "Bearer " + _credsConfig.Value.Token);
+
+            //Get the response
+            try
+            {
+                var wr = (await request.GetResponseAsync()) as HttpWebResponse;
+
+                if (wr.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream receiveStream = wr.GetResponseStream();
+                    StreamReader reader = new StreamReader(receiveStream, Encoding.UTF8);
+                    var content = JsonConvert.DeserializeObject<List<UserDto>>(reader.ReadToEnd());
+
+                    return content;
+                }
+            }
+            catch (Exception e) {; }
 
             return null;
         }

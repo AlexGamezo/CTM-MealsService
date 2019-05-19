@@ -29,5 +29,15 @@ namespace MealsService.Common.Extensions
         {
             return when.PlusDays(-((int)when.DayOfWeek - 1));
         }
+
+        public static DateTime GetWeekEnd(this DateTime when)
+        {
+            return when.GetWeekStart().AddDays(6);
+        }
+
+        public static LocalDate GetWeekEnd(this LocalDate when)
+        {
+            return when.GetWeekStart().PlusDays(6);
+        }
     }
 }

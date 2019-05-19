@@ -25,7 +25,7 @@ namespace MealsService.Ingredients
         {
             return Json(new
             {
-                categories = _ingredientsService.GetIngredientCategories()
+                categories = _ingredientsService.ListIngredientCategories()
             });
         }
 
@@ -117,7 +117,7 @@ namespace MealsService.Ingredients
             return Json(new SuccessResponse());
         }
 
-        [Authorize]
+        /*[Authorize]
         [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
@@ -129,6 +129,6 @@ namespace MealsService.Ingredients
             }
 
             return Json(new SuccessResponse());
-        }
+        }*/
     }
 }

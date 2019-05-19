@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MealsService.Recipes;
 using MealsService.Schedules.Data;
+using MealsService.Schedules.Dtos;
 using MealsService.Services;
 using MealsService.ShoppingList.Data;
 using MealsService.ShoppingList.Dtos;
@@ -77,12 +78,15 @@ namespace MealsService.ShoppingList
             ClearShoppingList(userId, weekStart);
             if (schedule.Any(d => d.Meals != null && d.Meals.Any(s => s.RecipeId > 0)))
             {
-                var preparations = schedule.Where(d => d.Preparations != null).SelectMany(d => d.Preparations).ToList();
+                var preparations = schedule.Where(d => d.Meals != null)
+                    .SelectMany(d => d.Meals.Select(m => m.Preparation))
+                    .Distinct()
+                    .ToList();
                 await HandlePreparationsAddedAsync(userId, preparations, weekStart, false);
             }
         }
 
-        public void HandlePreparationsRemoved(int userId, List<Preparation> preparations)
+        public void HandlePreparationsRemoved(int userId, List<PreparationDto> preparations)
         {
             //If these preparations had no recipe assigned, there's nothing to remove/update
             if (preparations.All(s => s.RecipeId == 0))
@@ -108,14 +112,9 @@ namespace MealsService.ShoppingList
                 }
                 
                 var preparation = preparations.First(p => p.Id == assoc.PreparationId);
-                if (preparation.Meals == null || !preparation.Meals.Any())
-                {
-                    //TODO: Have a dedicated exception thrown
-                    throw new InvalidDataException();
-                }
 
                 var recipe = prepRecipes[assoc.PreparationId];
-                var ingredientScale = (float)preparation.Meals.Sum(m => m.Servings) / recipe.NumServings;
+                var ingredientScale = (float)preparation.NumServings / recipe.NumServings;
                 var ingredient = recipe.Ingredients
                     .FirstOrDefault(i => i.IngredientId == assoc.ShoppingListItem.IngredientId);
 
@@ -166,7 +165,7 @@ namespace MealsService.ShoppingList
             _dbContext.SaveChanges();
         }
 
-        public async Task HandlePreparationsAddedAsync(int userId, List<Preparation> preparations, LocalDate weekStart, bool pregenShoppingList = true)
+        public async Task HandlePreparationsAddedAsync(int userId, List<PreparationDto> preparations, LocalDate weekStart, bool pregenShoppingList = true)
         {
             //Make sure the shopping list has been generated before making changes to it
             if (pregenShoppingList)
@@ -175,10 +174,10 @@ namespace MealsService.ShoppingList
             }
 
             var recipeServings = preparations.Where(s => s.RecipeId > 0)
-                .GroupBy(id => id.RecipeId).ToDictionary(g => g.Key, g => g.Sum(p => p.Meals.Sum(m => m.Servings)));
+                .GroupBy(id => id.RecipeId).ToDictionary(g => g.Key, g => g.Sum(p => p.NumServings));
 
             //RecipeId => Recipe
-            var recipes = _recipesService.FindRecipes(recipeServings.Keys, userId).ToDictionary(r => r.Id);
+            var recipes = _recipesService.FindRecipes(recipeServings.Keys).ToDictionary(r => r.Id);
 
             //RecipeIngredientId => RecipeId
             var recipeIngredientMap = recipes.Values

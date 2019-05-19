@@ -16,12 +16,18 @@ namespace MealsService.Recipes.Data
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
+        [StringLength(64)]
         public string Name { get; set; }
+
+        [StringLength(64)]
         public string Slug { get; set; }
 
+        [StringLength(128)]
         public string Brief { get; set; }
+        [StringLength(512)]
         public string Description { get; set; }
 
+        [StringLength(80)]
         public string Image { get; set; }
 
         public MealType MealType { get; set; }
@@ -30,8 +36,10 @@ namespace MealsService.Recipes.Data
         public int CookTime { get; set; }
         public int NumServings { get; set; }
 
-        [Column(TypeName = "varchar(200)")]
+        [StringLength(200)]
         public string Source { get; set; }
+
+        public bool Deleted { get; set; }
 
         /// <summary>
         /// Relationships

@@ -46,6 +46,9 @@ namespace MealsService
             var connection = Configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<MealsDbContext>(options => options.UseMySql(connection));
 
+            services.AddEnyimMemcached();
+            services.AddMemoryCache();
+
             // Add framework services.
             services.AddMvc();
             services.AddScoped<RecipesService>();
@@ -98,12 +101,13 @@ namespace MealsService
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-            loggerFactory.AddDebug();
+            //loggerFactory.AddConsole(Configuration.GetSection("Logging"));
+            //loggerFactory.AddDebug();
 
             app.UseDeveloperExceptionPage();
             app.UseMiddleware<JsonExceptionHandlerMiddleware>();
             app.UseMiddleware<RequestContextHydrateMiddleware>();
+            app.UseEnyimMemcached();
 
             app.UseCors(builder =>
             {

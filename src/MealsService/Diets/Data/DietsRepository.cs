@@ -10,10 +10,12 @@ namespace MealsService.Diets.Data
     public class DietsRepository
     {
         private MealsDbContext _context;
+        private DietTypeService _dietTypesService;
 
-        public DietsRepository(MealsDbContext context)
+        public DietsRepository(MealsDbContext context, DietTypeService dietTypesService)
         {
             _context = context;
+            _dietTypesService = dietTypesService;
         }
 
         public MenuPreference GetMenuPreference(int userId)
@@ -173,7 +175,7 @@ namespace MealsService.Diets.Data
                 UserId = userId,
                 RecipeStyle = RecipeStyle.ChefSpecial,
                 MealTypes = new List<MealType> { MealType.Dinner },
-                CurrentDietTypeId = _context.DietTypes.FirstOrDefault().Id
+                CurrentDietTypeId = _dietTypesService.ListDietTypes().First().Id
             };
         }
 

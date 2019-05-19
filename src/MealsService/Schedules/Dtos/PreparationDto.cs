@@ -5,7 +5,7 @@ using Newtonsoft.Json.Converters;
 
 namespace MealsService.Schedules.Dtos
 {
-    public class PreparationDto
+    public class PreparationDto : IEquatable<PreparationDto>
     {
         public int Id { get; set; }
         
@@ -15,5 +15,10 @@ namespace MealsService.Schedules.Dtos
         [JsonConverter(typeof(StringEnumConverter))]
         public MealType MealType { get; set; }
         public int NumServings { get; set; }
+        
+        public bool Equals(PreparationDto other)
+        {
+            return Id == other.Id;
+        }
     }
 }

@@ -22,6 +22,7 @@ namespace MealsService.Common.Errors
     {
         public static ServiceException RecipeUpdateFailed = new ServiceException("Could not update recipe image", 2001);
         public static ServiceException RecipeVoteFailed = new ServiceException("Could not update your vote", 2002);
+        public static ServiceException FailedToGenerateSlug = new ServiceException("Failed to generate slug for recipe", 2003);
     }
 
     public static class SubscriptionErrors
@@ -36,5 +37,10 @@ namespace MealsService.Common.Errors
         public static ServiceException CantMoveConfirmedMeal = new ServiceException("Cannot move a confirmed meal", 4003, HttpStatusCode.BadRequest);
         public static ServiceException CantMoveMealOutsideWeek = new ServiceException("Cannot move a meal outside of the week", 4004, HttpStatusCode.BadRequest);
         public static ServiceException MissingPreparation = new ServiceException("Missing target preparation", 4005, HttpStatusCode.BadRequest);
+        public static ServiceException CantReplaceConfirmedMeal = new ServiceException("Cannot replace a confirmed meal", 4006, HttpStatusCode.BadRequest);
+        public static ServiceException CantAddChallengeToDayWithMeals = new ServiceException("Cannot add a challenge set to a day with meals", 4007, HttpStatusCode.BadRequest);
+        public static ServiceException MissingScheduleDay = new ServiceException("Missing scheduled day", 4009, HttpStatusCode.BadRequest);
+        public static ServiceException CantReplaceExistingPreparation = new ServiceException("Cannot replace an existing preparation", 4010, HttpStatusCode.BadRequest);
+
     }
 }

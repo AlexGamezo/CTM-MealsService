@@ -33,13 +33,11 @@ namespace MealsService.Diets
         };
 
         private DietsRepository _repository;
-        private DietTypeService _dietTypeService;
         private IServiceProvider _serviceProvider;
 
         public DietService(MealsDbContext dbContext, DietTypeService dietTypeService, IServiceProvider serviceProvider)
         {
-            _repository = new DietsRepository(dbContext);
-            _dietTypeService = dietTypeService;
+            _repository = new DietsRepository(dbContext, dietTypeService);
             _serviceProvider = serviceProvider;
         }
 

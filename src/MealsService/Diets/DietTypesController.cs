@@ -19,7 +19,7 @@ namespace MealsService.Diets
         [HttpGet]
         public IActionResult List()
         {
-            var dietTypes = _dietTypeService.GetDietTypes();
+            var dietTypes = _dietTypeService.ListDietTypes();
 
             return Json(new
             {

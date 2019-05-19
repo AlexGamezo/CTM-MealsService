@@ -85,17 +85,14 @@ namespace MealsService.Controllers
                 localDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
             }
 
-            var scheduleDays = (await _scheduleService.GetScheduleAsync(userId, localDate.GetWeekStart(), localDate.GetWeekStart().PlusDays(6)))
-                .Select(_scheduleService.ToScheduleDayDto)
+            var scheduleDays = (await _scheduleService.GetScheduleAsync(userId, localDate.GetWeekStart(), localDate.GetWeekEnd()))
                 .ToList();
 
             var recipeIds = scheduleDays.Where(d => d.Meals != null).SelectMany(d => d.Meals.Select(s => s.RecipeId));
-            var recipes = _recipesService.GetRecipes(recipeIds, userId);
 
             return Json(new SuccessResponse<object>( new
             {
-                scheduleDays,
-                recipes
+                scheduleDays
             }));
         }
         
@@ -127,7 +124,7 @@ namespace MealsService.Controllers
 
             if (request.Op == MealPatchRequest.Operation.MoveMeal)
             {
-                success = await _scheduleService.MoveMealAsync(userId, mealId, request.ScheduleDayId);
+                //success = await _scheduleService.MoveMealAsync(userId, mealId, request.ScheduleDayId);
             }
             else if (request.Op == MealPatchRequest.Operation.UpdateConfirmState)
             {
@@ -241,7 +238,7 @@ namespace MealsService.Controllers
                 throw StandardErrors.InvalidDateSpecified;
             }
 
-            var end = localDate.PlusDays(6);
+            var end = localDate.GetWeekEnd();
             var endInstant = end.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz).ToInstant();
 
             if (endInstant > SystemClock.Instance.GetCurrentInstant())
@@ -265,15 +262,15 @@ namespace MealsService.Controllers
             var zone = _serviceProvider.GetService<RequestContext>().Dtz;
             var startDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
 
-            var schedule = await _scheduleService.GetScheduleAsync(userId, startDate, startDate.PlusDays(6));
+            var schedule = await _scheduleService.GetScheduleAsync(userId, startDate, startDate.GetWeekEnd());
 
-            if (!schedule.Any(d => d.Meals.Any(m => m.ConfirmStatus == ConfirmStatus.UNSET)))
+            if (!schedule.Any(d => d.Meals.Any(m => m.Confirmed == ConfirmStatus.UNSET)))
             {
                 startDate = startDate.PlusDays(7);
-                schedule = await _scheduleService.GetScheduleAsync(userId, startDate, startDate.PlusDays(6));
+                schedule = await _scheduleService.GetScheduleAsync(userId, startDate, startDate.GetWeekEnd());
             }
 
-            var meal = _scheduleService.ToMealDto(schedule.SelectMany(d => d.Meals).First(m => m.ConfirmStatus == ConfirmStatus.UNSET));
+            var meal = schedule.SelectMany(d => d.Meals).First(m => m.Confirmed == ConfirmStatus.UNSET);
             
             return Json(new
             {

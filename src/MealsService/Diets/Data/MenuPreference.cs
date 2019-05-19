@@ -46,6 +46,7 @@ namespace MealsService.Diets.Data
         }
 
         [IgnoreDataMember]
+        [StringLength(10)]
         public string MealTypesList
         {
             get { return _mealTypesList; }

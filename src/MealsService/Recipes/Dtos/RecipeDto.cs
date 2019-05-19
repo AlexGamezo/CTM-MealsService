@@ -20,7 +20,8 @@ namespace MealsService.Recipes.Dtos
         public int CookTime { get; set; }
         public int NumServings { get; set; }
 
-        public string MealType { get; set; }
+        [JsonConverter(typeof(StringEnumConverter))]
+        public MealType MealType { get; set; }
 
         public string Source { get; set; }
 
@@ -31,5 +32,7 @@ namespace MealsService.Recipes.Dtos
 
         public List<RecipeStep> Steps { get; set; }
         public List<int> DietTypes { get; set; }
+
+        public bool IsDeleted { get; set; }
     }
 }

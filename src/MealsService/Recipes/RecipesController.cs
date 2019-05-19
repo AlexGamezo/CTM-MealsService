@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
 using MealsService.Common;
+using MealsService.Common.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,9 +25,19 @@ namespace MealsService.Recipes
         }
 
         [HttpPost("list")]
-        public IActionResult List([FromBody]ListRecipesRequest request)
+        public async Task<IActionResult> ListAsync([FromBody]ListRecipesRequest request)
         {
-            var recipes = _recipesService.ListRecipes(request, AuthorizedUser);
+            if (request.UserId > 0 && (AuthorizedUser != request.UserId || !IsAdmin))
+            {
+                throw StandardErrors.ForbiddenRequest;
+            }
+
+            if (!IsAdmin && request.IncludeDeleted)
+            {
+                request.IncludeDeleted = false;
+            }
+
+            var recipes = await _recipesService.ListRecipesAsync(request, AuthorizedUser);
             
             return Json(new SuccessResponse<object>(new 
             {
@@ -35,9 +46,9 @@ namespace MealsService.Recipes
         }
 
         [HttpGet("{id:int}")]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> GetAsync(int id)
         {
-            var recipe = _recipesService.GetRecipe(id, AuthorizedUser);
+            var recipe = await _recipesService.GetRecipeAsync(id, AuthorizedUser);
 
             if(recipe != null)
             {
@@ -51,9 +62,9 @@ namespace MealsService.Recipes
         }
 
         [HttpGet("{slug:regex(^[[A-Za-z0-9\\-]]+$)}")]
-        public IActionResult Get(string slug)
+        public async Task<IActionResult> GetAsync(string slug)
         {
-            var recipe = _recipesService.GetBySlug(slug, AuthorizedUser);
+            var recipe = await _recipesService.GetBySlugAsync(slug, AuthorizedUser);
 
             if (recipe != null)
             {
@@ -128,7 +139,7 @@ namespace MealsService.Recipes
                 HttpContext.Response.StatusCode = 400;
                 return Json(new ErrorResponse("Allowed types are PNG, JPEG, BMP", 500));
             }
-            if (!await _recipesService.UpdateRecipeImage(recipeId, recipeImageFile))
+            if (!await _recipesService.UpdateRecipeImageAsync(recipeId, recipeImageFile))
             {
                 HttpContext.Response.StatusCode = 400;
                 return Json(new ErrorResponse("Could not update recipe image", 500));

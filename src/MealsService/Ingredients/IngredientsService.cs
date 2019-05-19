@@ -1,25 +1,31 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
+
+using MealsService.Common;
 using MealsService.Common.Errors;
 using MealsService.Configurations;
 using MealsService.Requests;
 using MealsService.Ingredients.Data;
 using MealsService.Tags;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
-using Tag = MealsService.Tags.Data.Tag;
+using Microsoft.Extensions.DependencyInjection;
+
 
 namespace MealsService.Ingredients
 {
     public class IngredientsService
     {
-        private MealsDbContext _dbContext;
+        private IngredientsRepository _repository;
+        private IMemoryCache _localCache;
 
         private string _imagesBucketName;
         private string _region;
@@ -28,12 +34,17 @@ namespace MealsService.Ingredients
         private TagsService _tagsService;
         private MeasureTypesService _measureTypesService;
 
-        public IngredientsService(MealsDbContext dbContext, TagsService tagsService, MeasureTypesService measureTypeService,
-            IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
+        private const int INGREDIENTS_CACHE_TTL_SECONDS = 900;
+        private const int INGREDIENT_CATEGORIES_CACHE_TTL_SECONDS = 900;
+
+        public IngredientsService(IServiceProvider serviceProvider, MeasureTypesService measureTypesService, TagsService tagsService, IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
         {
-            _dbContext = dbContext;
             _tagsService = tagsService;
-            _measureTypesService = measureTypeService;
+            _measureTypesService = measureTypesService;
+
+            _repository = new IngredientsRepository(serviceProvider);
+
+            _localCache = serviceProvider.GetService<IMemoryCache>();
 
             _s3Client = s3Client;
             _imagesBucketName = options.Value.IngredientImagesBucket;
@@ -45,22 +56,65 @@ namespace MealsService.Ingredients
             return GetIngredients(new List<int> {ingredientId})
                 .FirstOrDefault();
         }
-
-
-
+        
         public List<Ingredient> GetIngredients(List<int> ingredientIds)
         {
-            return _dbContext.Ingredients
-                .Include(i => i.IngredientTags)
-                    .ThenInclude(it => it.Tag)
-                .Include(i => i.IngredientMeasureTypes)
-                .Include(i => i.IngredientCategory)
+            return ListIngredients()
                 .Where(t => ingredientIds.Contains(t.Id))
                 .ToList();
         }
 
+        public List<Ingredient> GetIngredientsByTags(List<string> tags)
+        {
+            return ListIngredients()
+                .Where(i => i.IngredientTags.Any(ig => tags.Contains(ig.Tag.Name)))
+                .ToList();
+        }
+
+        public List<Ingredient> ListIngredients(bool skipCache = false)
+        {
+            if (skipCache)
+            {
+                return ListIngredientsInternal();
+            }
+
+            return _localCache.GetOrCreate(CacheKeys.Ingredients.IngredientsList, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(INGREDIENTS_CACHE_TTL_SECONDS);
+
+                return ListIngredientsInternal();
+            });
+        }
+
+        public List<Ingredient> GetIngredients(string search = "")
+        {
+            var ingredients = ListIngredients();
+
+            if (search != "")
+            {
+                ingredients = ingredients.Where(i => i.Name.Contains(search)).ToList();
+            }
+
+            return ingredients;
+        }
+
+        public List<IngredientCategory> ListIngredientCategories(bool skipCache = false)
+        {
+            if (skipCache)
+            {
+                return ListIngredientCategoriesInternal();
+            }
+
+            return _localCache.GetOrCreate(CacheKeys.Ingredients.IngredientCategoriesList, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(INGREDIENT_CATEGORIES_CACHE_TTL_SECONDS);
+                return ListIngredientCategoriesInternal();
+            });
+        }
+
         public Ingredient Create(CreateIngredientRequest request)
         {
+            var missingCategory = false;
             var ingredient = new Ingredient
             {
                 Name = request.Name,
@@ -68,37 +122,28 @@ namespace MealsService.Ingredients
                 Description = request.Description,
             };
 
-            var ingredientCategory = _dbContext.IngredientCategories
-                .FirstOrDefault(c => c.Name == request.Category);
-
-            ingredient.IngredientCategory = ingredientCategory ?? new IngredientCategory {Name = request.Category};
-
-            var tags = _tagsService.ListTags();
-
-            ingredient.IngredientTags.AddRange(request.Tags.Select(
-                tag => new IngredientTag
-                {
-                    Tag = tags.FirstOrDefault(t => t.Name == tag.ToLower()) ?? new Tag {Name = tag.ToLower()}
-                }
-            ));
-
             if (request.MeasureTypes.Count == 0)
             {
-                request.MeasureTypes.Add(_dbContext.MeasureTypes.First(t => t.Short == "oz").Id);
+                request.MeasureTypes.Add(_measureTypesService.DefaultMeasureType.Id);
             }
 
-            ingredient.IngredientMeasureTypes.AddRange(request.MeasureTypes.Select(
-                mt => new IngredientMeasureType
-                {
-                    MeasureTypeId = mt
-                }
-            ));
+            ingredient.IngredientCategory = ListIngredientCategories()
+                                         .FirstOrDefault(c => c.Name == request.Category) ?? new IngredientCategory { Name = request.Category };
+            missingCategory = ingredient.IngredientCategory.Id == 0;
 
-            _dbContext.Ingredients.Add(ingredient);
-
-            if (_dbContext.SaveChanges() == 0)
+            if (!_repository.SaveIngredient(ingredient))
             {
                 throw StandardErrors.CouldNotCreateEntity;
+            }
+
+            _repository.SetMeasurementTypes(ingredient, request.MeasureTypes);
+            _repository.SetTags(ingredient, _tagsService.GetTags(request.Tags).Select(t => t.Id).ToList());
+            
+            ClearCacheIngredients();
+
+            if (missingCategory)
+            {
+                ClearCacheCategories();
             }
 
             return ingredient;
@@ -106,15 +151,12 @@ namespace MealsService.Ingredients
 
         public bool Update(UpdateIngredientRequest request)
         {
+            var missingCategory = false;
             var ingredient = GetIngredient(request.Id);
-
-            ingredient.Name = request.Name;
-            ingredient.Description = request.Description;
-            ingredient.Brief = request.Brief;
 
             if (request.Category != ingredient.Category)
             {
-                var ingredientCategory = _dbContext.IngredientCategories
+                var ingredientCategory = ListIngredientCategories()
                     .FirstOrDefault(c => c.Name == request.Category);
 
                 if (ingredientCategory == null)
@@ -123,6 +165,7 @@ namespace MealsService.Ingredients
                     {
                         Name = request.Category
                     };
+                    missingCategory = true;
                 }
                 else
                 {
@@ -130,46 +173,33 @@ namespace MealsService.Ingredients
                 }
             }
 
-            //TODO: Clean up to check for new/removed tags only, instead of mass replace
-            var tags = _tagsService.ListTags().Where(t => request.Tags.Contains(t.Name))
-                .ToList();
+            ingredient.Name = request.Name;
+            ingredient.Description = request.Description;
+            ingredient.Brief = request.Brief;
 
-            _dbContext.IngredientTags.RemoveRange(ingredient.IngredientTags);
-            ingredient.IngredientTags.Clear();
-
-            var ingredientTags = request.Tags.Select(
-                tag => new IngredientTag
-                {
-                    Ingredient = ingredient,
-                    Tag = tags.FirstOrDefault(t => t.Name == tag.ToLower()) ?? new Tag { Name = tag.ToLower() }
-                }
-            );
-            ingredient.IngredientTags.AddRange(ingredientTags);
-
-            _dbContext.IngredientMeasureTypes.RemoveRange(ingredient.IngredientMeasureTypes);
-            ingredient.IngredientMeasureTypes.Clear();
-
-            if (request.MeasureTypes.Count == 0)
+            if (_repository.SaveIngredient(ingredient))
             {
-                request.MeasureTypes.Add(_dbContext.MeasureTypes.First(t => t.Short == "oz").Id);
+
+                _repository.SetTags(ingredient, _tagsService.GetTags(request.Tags).Select(t => t.Id).ToList());
+                _repository.SetMeasurementTypes(ingredient, request.MeasureTypes);
+
+                ClearCacheIngredients();
+
+                if (missingCategory)
+                {
+                    ClearCacheCategories();
+                }
+
+                return true;
             }
 
-            var ingredmentMeasureTypes = request.MeasureTypes.Select(
-                measureType => new IngredientMeasureType
-                {
-                    Ingredient = ingredient,
-                    MeasureTypeId = measureType
-                }
-            );
-            ingredient.IngredientMeasureTypes.AddRange(ingredmentMeasureTypes);
-
-            return _dbContext.SaveChanges() > 0;
+            return false;
         }
         
         public async Task<bool> UpdateIngredientImage(int ingredientId, IFormFile avatarFile)
         {
-            var foundIngredient = _dbContext.Ingredients.FirstOrDefault(p => p.Id == ingredientId);
-            var extension = avatarFile.ContentType.Substring(avatarFile.ContentType.IndexOf("/") + 1);
+            var foundIngredient = GetIngredient(ingredientId);
+            var extension = avatarFile.ContentType.Substring(avatarFile.ContentType.IndexOf("/", StringComparison.InvariantCulture) + 1);
             var avatarFilename = ingredientId + "." + extension;
             var stream = new MemoryStream();
 
@@ -191,7 +221,7 @@ namespace MealsService.Ingredients
             if (response.HttpStatusCode == HttpStatusCode.OK)
             {
                 foundIngredient.Image = GetImageUrl(avatarFilename);
-                return _dbContext.Entry(foundIngredient).State == EntityState.Unchanged || _dbContext.SaveChanges() == 1;
+                return _repository.SaveIngredient(foundIngredient);
             }
             else
             {
@@ -204,7 +234,7 @@ namespace MealsService.Ingredients
             return $"https://s3-{_region}.amazonaws.com/{_imagesBucketName}/{filename}";
         }
 
-        public bool Delete(int id)
+        /*public bool Delete(int id)
         {
             if (id == 0)
             {
@@ -223,29 +253,26 @@ namespace MealsService.Ingredients
             _dbContext.Ingredients.Remove(ingredient);
 
             return _dbContext.SaveChanges() > 0;
+        }*/
+
+        private List<Ingredient> ListIngredientsInternal()
+        {
+            return _repository.ListIngredients();
         }
 
-        //TODO: Add cache layer
-        public IEnumerable<Ingredient> GetIngredients(string search = "")
+        private List<IngredientCategory> ListIngredientCategoriesInternal()
         {
-            IQueryable<Ingredient> ingredients = _dbContext.Ingredients
-                .Include(i => i.IngredientCategory)
-                .Include(i => i.IngredientMeasureTypes)
-                .Include(i => i.IngredientTags)
-                    .ThenInclude(it => it.Tag);
-
-            if (search != "")
-            {
-                ingredients = ingredients.Where(i => i.Name.Contains(search));
-            }
-            
-            return ingredients.ToList();
+            return _repository.ListIngredientCategories();
         }
-
-        //TODO: Add cache layer
-        public IEnumerable<IngredientCategory> GetIngredientCategories()
+        
+        private void ClearCacheIngredients()
         {
-            return _dbContext.IngredientCategories.ToList();
+            _localCache.Remove(CacheKeys.Ingredients.IngredientsList);
+        }
+        
+        private void ClearCacheCategories()
+        {
+            _localCache.Remove(CacheKeys.Ingredients.IngredientCategoriesList);
         }
     }
 }

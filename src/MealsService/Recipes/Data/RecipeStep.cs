@@ -12,6 +12,8 @@ namespace MealsService.Recipes.Data
 
         [IgnoreDataMember]
         public int RecipeId { get; set; }
+
+        [StringLength(512)]
         public string Text { get; set; }
         public int Order { get; set; }
 

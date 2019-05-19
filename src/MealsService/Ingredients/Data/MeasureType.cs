@@ -16,7 +16,11 @@ namespace MealsService.Ingredients.Data
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
+
+        [StringLength(32)]
         public string Name { get; set; }        //Ounces
+
+        [StringLength(10)]
         public string Short { get; set; }       //oz
         //public MeasureSystem MeasureSystem { get; set; }
     }
