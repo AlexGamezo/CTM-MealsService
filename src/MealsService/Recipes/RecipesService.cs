@@ -42,8 +42,11 @@ namespace MealsService.Recipes
         private IMemoryCache _localCache;
         private IMemcachedClient _memcache;
 
-        private const int RECIPE_CACHE_TTL_SECONDS = 900;
-        private const int VOTES_CACHE_TTL_SECONDS = 900;
+        private const int RECIPE_CACHE_TTL_SECONDS = 15 * 60;
+        private const int VOTES_CACHE_TTL_SECONDS = 15 * 60;
+        private const int RECENT_RECIPES_CACHE_TTL_SECONDS = 14 * 24 * 60 * 60;
+
+        private const int RECENT_RECIPES_COUNT = 50;
 
         public RecipesService(IngredientsService ingredientsService, IAmazonS3 s3Client, IOptions<AWSConfiguration> options, IServiceProvider serviceProvider)
         {
@@ -416,7 +419,7 @@ namespace MealsService.Recipes
             return dtos;
         }
 
-        public RecipeDto GetRandomRecipe(RandomRecipeRequest request, Dictionary<int, int> recipeWeights = null)
+        public async Task<RecipeDto> GetRandomRecipeAsync(RandomRecipeRequest request, int userId = 0)
         {
             request.ExcludeTags = request.ExcludeTags?.Select(g => g.ToLower()).ToList();
 
@@ -432,23 +435,31 @@ namespace MealsService.Recipes
                     .ToList();
             }
 
+            var recentPulls = await GetRecentRecipeIds(userId);
             var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList() : new List<int>();
 
-            var sortedRecipes = (ListRecipes(new ListRecipesRequest { MealType = MealType.Dinner }))
+            var sortedRecipes = (await ListRecipesAsync(new ListRecipesRequest {MealType = MealType.Dinner}))
                 //TODO: Fix
                 .Where(m => (request.DietTypeId == 0 || m.DietTypes.Contains(request.DietTypeId)))
                 //Exclude any recipes that have ingredients that were requested to be excluded
                 .Where(m => m.Ingredients.All(mi => !excludedIngredientIds.Contains(mi.IngredientId)))
+                .Where(r => !request.ExcludeRecipes.Contains(r.Id) && !recentPulls.Contains(r.Id))
                 //Sort recipes that have the requested ingredients to the top
-                .OrderBy(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.IngredientId)))
+                .OrderByDescending(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.IngredientId)))
+                .ThenByDescending(r => r.Priority);
                 //Preference the recipes that haven't been used yet
-                .ThenBy(m => recipeWeights != null && recipeWeights.ContainsKey(m.Id) ? recipeWeights[m.Id] : 0);
+                //.ThenBy(m => recipeWeights != null && recipeWeights.ContainsKey(m.Id) ? recipeWeights[m.Id] : 0);
 
             var rand = new Random();
-            var countDiff = sortedRecipes.Count() - sortedRecipes.Count(r => recipeWeights != null && recipeWeights.ContainsKey(r.Id));
+            var countDiff = 0; //sortedRecipes.Count() - sortedRecipes.Count(r => recipeWeights != null && recipeWeights.ContainsKey(r.Id));
             var index = countDiff > 0 ? rand.Next(countDiff) : rand.Next(sortedRecipes.Count());
 
             var recipe = sortedRecipes.Skip(index).FirstOrDefault();
+
+            if(recipe != null)
+            {
+                await TrackRecentRecipeId(userId, recipe.Id);
+            }
 
             //TODO: Add logger
             /*if (recipe == null)
@@ -459,47 +470,19 @@ namespace MealsService.Recipes
             return recipe;
         }
 
-        public async Task<RecipeDto> GetRandomRecipeAsync(RandomRecipeRequest request, Dictionary<int, int> recipeWeights = null)
+        public async Task<List<int>> GetRecentRecipeIds(int userId)
         {
-            request.ExcludeTags = request.ExcludeTags?.Select(g => g.ToLower()).ToList();
+            return await _memcache.GetValueOrCreateAsync(CacheKeys.Recipes.RecentGenerations(userId),
+                RECENT_RECIPES_CACHE_TTL_SECONDS, () => Task.FromResult(new List<int>()));
+        }
 
-            //TODO: Add tags to recipes, specific to the recipe, but also pulled up from the ingredients
-            //TODO: Refactor to use recipe's tags instead of ingredients
-            //TODO: Don't count optional ingredients, once there is such a thing
-            var excludedIngredientIds = new List<int>();
+        public async Task TrackRecentRecipeId(int userId, int recipeId)
+        {
+            var recentIds = await GetRecentRecipeIds(userId);
+            recentIds.Insert(0, recipeId);
 
-            if (request.ExcludeTags != null && request.ExcludeTags.Any())
-            {
-                excludedIngredientIds = _ingredientsService.GetIngredientsByTags(request.ExcludeTags)
-                    .Select(i => i.Id)
-                    .ToList();
-            }
-
-            var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList() : new List<int>();
-
-            var sortedRecipes = (await ListRecipesAsync(new ListRecipesRequest { MealType = MealType.Dinner }))
-                //TODO: Fix
-                .Where(m => (request.DietTypeId == 0 || m.DietTypes.Contains(request.DietTypeId)))
-                //Exclude any recipes that have ingredients that were requested to be excluded
-                .Where(m => m.Ingredients.All(mi => !excludedIngredientIds.Contains(mi.IngredientId)))
-                //Sort recipes that have the requested ingredients to the top
-                .OrderBy(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.IngredientId)))
-                //Preference the recipes that haven't been used yet
-                .ThenBy(m => recipeWeights != null && recipeWeights.ContainsKey(m.Id) ? recipeWeights[m.Id] : 0);
-
-            var rand = new Random();
-            var countDiff = sortedRecipes.Count() - sortedRecipes.Count(r => recipeWeights != null && recipeWeights.ContainsKey(r.Id));
-            var index = countDiff > 0 ? rand.Next(countDiff) : rand.Next(sortedRecipes.Count());
-
-            var recipe = sortedRecipes.Skip(index).FirstOrDefault();
-
-            //TODO: Add logger
-            /*if (recipe == null)
-            {
-                throw new Exception("No recipes for type " + request.MealType);
-            }*/
-
-            return recipe;
+            await _memcache.SetAsync(CacheKeys.Recipes.RecentGenerations(userId), recentIds.Take(RECENT_RECIPES_COUNT),
+                RECENT_RECIPES_CACHE_TTL_SECONDS);
         }
 
         public RecipeDto ToRecipeDto(Recipe recipe)
@@ -530,7 +513,8 @@ namespace MealsService.Recipes
                 DietTypes = recipe.RecipeDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),
                 Vote = recipe.Votes != null && recipe.Votes.Any() ? recipe.Votes.First().Vote : RecipeVote.VoteType.UNKNOWN,
                 Slug = recipe.Slug,
-                IsDeleted = recipe.Deleted
+                Priority = recipe.Priority,
+                IsDeleted = recipe.Deleted,
             };
         }
 

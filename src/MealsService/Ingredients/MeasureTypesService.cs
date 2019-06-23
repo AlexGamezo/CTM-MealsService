@@ -1,32 +1,37 @@
 ﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using MealsService.Ingredients.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MealsService.Ingredients
 {
     public class MeasureTypesService
     {
-        private MealsDbContext _dbContext;
+        private IServiceProvider _serviceProvider;
 
         public MeasureType DefaultMeasureType => ListAvailableTypes().First(m => m.Short == "oz");
 
-        public MeasureTypesService(MealsDbContext dbContext)
+        public MeasureTypesService(IServiceProvider serviceProvider)
         {
-            _dbContext = dbContext;
+            _serviceProvider = serviceProvider;
         }
 
         public List<MeasureType> ListAvailableTypes()
         {
-            return _dbContext.MeasureTypes.ToList();
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
+            return dbContext.MeasureTypes.ToList();
         }
 
         public MeasureType Create(MeasureType type)
         {
-            _dbContext.MeasureTypes.Add(type);
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
 
-            if(_dbContext.SaveChanges() > 0)
+            dbContext.MeasureTypes.Add(type);
+
+            if(dbContext.SaveChanges() > 0)
                 return type;
 
             return null;
@@ -34,22 +39,26 @@ namespace MealsService.Ingredients
 
         public bool Update(MeasureType type)
         {
-            _dbContext.MeasureTypes.Update(type);
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
 
-            return _dbContext.Entry(type).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
+            dbContext.MeasureTypes.Update(type);
+
+            return dbContext.Entry(type).State == EntityState.Unchanged || dbContext.SaveChanges() > 0;
         }
 
         public bool Delete(int id)
         {
-            var type = _dbContext.MeasureTypes.FirstOrDefault(t => t.Id == id);
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
+
+            var type = dbContext.MeasureTypes.FirstOrDefault(t => t.Id == id);
 
             if (type == null)
             {
                 return false;
             }
 
-            _dbContext.MeasureTypes.Remove(type);
-            return _dbContext.SaveChanges() > 0;
+            dbContext.MeasureTypes.Remove(type);
+            return dbContext.SaveChanges() > 0;
         }
     }
 }

@@ -33,6 +33,8 @@ namespace MealsService.Recipes.Dtos
         public List<RecipeStep> Steps { get; set; }
         public List<int> DietTypes { get; set; }
 
+        public int Priority { get; set; }
+
         public bool IsDeleted { get; set; }
     }
 }

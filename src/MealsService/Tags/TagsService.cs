@@ -12,14 +12,14 @@ namespace MealsService.Tags
 {
     public class TagsService
     {
-        private MealsDbContext _dbContext;
         private IMemoryCache _localCache;
+        private IServiceProvider _serviceProvider;
 
         private const int LIST_CACHE_TTL_SECONDS = 900;
 
-        public TagsService(MealsDbContext dbContext, IServiceProvider serviceProvider)
+        public TagsService(IServiceProvider serviceProvider)
         {
-            _dbContext = dbContext;
+            _serviceProvider = serviceProvider;
             _localCache = serviceProvider.GetService<IMemoryCache>();
         }
 
@@ -57,16 +57,18 @@ namespace MealsService.Tags
 
         public bool UpdateTag(Tag tag)
         {
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
+
             if (tag.Id > 0)
             {
-                _dbContext.Tags.Update(tag);
+                dbContext.Tags.Update(tag);
             }
             else
             {
-                _dbContext.Tags.Add(tag);
+                dbContext.Tags.Add(tag);
             }
 
-            if (_dbContext.Entry(tag).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0)
+            if (dbContext.Entry(tag).State == EntityState.Unchanged || dbContext.SaveChanges() > 0)
             {
                 ClearCacheList();
                 return true;
@@ -77,9 +79,10 @@ namespace MealsService.Tags
 
         public bool DeleteTag(int tagId)
         {
-            _dbContext.Tags.Remove(_dbContext.Tags.Find(tagId));
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
+            dbContext.Tags.Remove(dbContext.Tags.Find(tagId));
 
-            if (_dbContext.SaveChanges() > 0)
+            if (dbContext.SaveChanges() > 0)
             {
                 ClearCacheList();
 
@@ -91,9 +94,8 @@ namespace MealsService.Tags
 
         private List<Tag> ListTagsInternal()
         {
-            IEnumerable<Tag> tags = _dbContext.Tags;
-
-            return tags.ToList();
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
+            return dbContext.Tags.ToList();
         }
 
         private void ClearCacheList()

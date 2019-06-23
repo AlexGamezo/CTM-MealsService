@@ -40,8 +40,7 @@ namespace MealsService.Services
 
         private ILogger<ScheduleService> _logger;
 
-        public ScheduleService(DietService dietService, RecipesService recipesService,
-            SubscriptionsService subscriptionService, IServiceProvider serviceProvider)
+        public ScheduleService(DietService dietService, RecipesService recipesService, SubscriptionsService subscriptionService, IServiceProvider serviceProvider)
         {
             _scheduleRepo = new ScheduleRepository(serviceProvider);
 
@@ -248,21 +247,6 @@ namespace MealsService.Services
             scheduleDay.DietTypeId = goal.TargetDietId;
             var preparations = new List<Preparation>();
 
-            var myVotes = (await _recipesService.GetVotesAsync(userId))
-                .Where(v => v.Vote != RecipeVote.VoteType.UNKNOWN)
-                .ToList();
-
-            var recipeWeights = new Dictionary<int, int>();
-
-            //TODO: Do a better job of preferring Liked/Hated recipes
-            foreach (var vote in myVotes)
-            {
-                if (!recipeWeights.ContainsKey(vote.RecipeId))
-                {
-                    recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
-                }
-            }
-
             foreach (var mealType in preference.MealTypes)
             {
                 var randomRecipeRequest = new RandomRecipeRequest
@@ -273,7 +257,7 @@ namespace MealsService.Services
                 
                 //TODO: preference recipes not present this week
                 //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
-                var recipe = _recipesService.GetRandomRecipe(randomRecipeRequest, recipeWeights);
+                var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
 
                 var prep = new Preparation
                 {
@@ -388,7 +372,7 @@ namespace MealsService.Services
             
             //TODO: preference recipes not present this week
             //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
-            var recipe = _recipesService.GetRandomRecipe(randomRecipeRequest, recipeWeights);
+            var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
             
             if (recipe != null && recipe.Id != preparation.RecipeId && _scheduleRepo.SetPreparationRecipeId(preparationId, recipe.Id))
             {
@@ -481,7 +465,7 @@ namespace MealsService.Services
                 randomRecipeRequest.DietTypeId = genDay.DietTypeId;
                 randomRecipeRequest.MealType = generator.MealType;
 
-                var recipe = _recipesService.GetRandomRecipe(randomRecipeRequest, usedRecipeCounts);
+                var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
 
                 if (recipe != null)
                 {
@@ -563,7 +547,7 @@ namespace MealsService.Services
             do
             {
                 users = await userService.GetActiveUsers(count, offset);
-
+                
                 //TODO: Batch-get for Profile + Preferences, or filter as part of Profile GET request
                 for (var i = 0; i < users.Count; i++)
                 {

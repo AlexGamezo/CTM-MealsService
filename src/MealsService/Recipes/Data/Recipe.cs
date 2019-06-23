@@ -39,6 +39,8 @@ namespace MealsService.Recipes.Data
         [StringLength(200)]
         public string Source { get; set; }
 
+        public int Priority { get; set; }
+
         public bool Deleted { get; set; }
 
         /// <summary>

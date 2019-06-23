@@ -53,18 +53,19 @@ namespace MealsService
             services.AddMvc();
             services.AddScoped<RecipesService>();
             services.AddScoped<ScheduleService>();
-            services.AddScoped<DietService>();
             services.AddScoped<IngredientsService>();
             services.AddScoped<TagsService>();
             services.AddScoped<DietTypeService>();
+            services.AddScoped<DietService>();
+            services.AddScoped<SubscriptionsService>();
             services.AddScoped<MeasureTypesService>();
+
             services.AddScoped<ShoppingListService>();
             services.AddScoped<StatsService>();
             services.AddScoped<UsersService>();
             services.AddScoped<RequestContext>();
             services.AddScoped<RequestContextFactory>();
             services.AddScoped<EmailService>();
-            services.AddScoped<SubscriptionsService>();
             services.AddScoped<IViewRenderService, ViewRenderService>();
 
             services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));

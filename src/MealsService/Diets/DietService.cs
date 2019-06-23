@@ -35,9 +35,9 @@ namespace MealsService.Diets
         private DietsRepository _repository;
         private IServiceProvider _serviceProvider;
 
-        public DietService(MealsDbContext dbContext, DietTypeService dietTypeService, IServiceProvider serviceProvider)
+        public DietService(DietTypeService dietTypeService, IServiceProvider serviceProvider)
         {
-            _repository = new DietsRepository(dbContext, dietTypeService);
+            _repository = new DietsRepository(serviceProvider, dietTypeService);
             _serviceProvider = serviceProvider;
         }
 

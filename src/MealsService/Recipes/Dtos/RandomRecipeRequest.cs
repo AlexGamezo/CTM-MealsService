@@ -9,7 +9,8 @@ namespace MealsService.Recipes.Dtos
         public MealType MealType { get; set; }
         public int DietTypeId { get; set; }
 
-        public List<string> ExcludeTags { get; set; }
-        public List<RecipeIngredientDto> ConsumeIngredients { get; set; }
+        public List<string> ExcludeTags { get; set; } = new List<string>();
+        public List<RecipeIngredientDto> ConsumeIngredients { get; set; } = new List<RecipeIngredientDto>();
+        public List<int> ExcludeRecipes { get; set; } = new List<int>();
     }
 }

@@ -11,21 +11,20 @@ namespace MealsService.Diets
 {
     public class DietTypeService
     {
-        private MealsDbContext _dbContext;
+        private IServiceProvider _serviceProvider;
         private IMemoryCache _localCache;
 
         private const int CACHE_TTL_SECONDS = 900;
 
-        public DietTypeService(MealsDbContext dbContext, IServiceProvider serviceProvider)
+        public DietTypeService(IServiceProvider serviceProvider)
         {
-            _dbContext = dbContext;
-
+            _serviceProvider = serviceProvider;
             _localCache = serviceProvider.GetService<IMemoryCache>();
         }
 
         public DietType GetDietType(string dietType)
         {
-            return _dbContext.DietTypes.FirstOrDefault(t => t.Name == dietType);
+            return ListDietTypes().FirstOrDefault(t => t.Name == dietType);
         }
 
         public List<DietType> ListDietTypes(bool skipCache = false)
@@ -44,14 +43,15 @@ namespace MealsService.Diets
 
         public bool CreateDietType(DietType request)
         {
+            var dbContext = _serviceProvider.GetService<MealsDbContext>();
             if (request.Id != 0)
             {
                 request.Id = 0;
             }
 
-            _dbContext.DietTypes.Add(request);
+            dbContext.DietTypes.Add(request);
 
-            if (_dbContext.SaveChanges() > 0)
+            if (dbContext.SaveChanges() > 0)
             {
                 _localCache.Remove(CacheKeys.DietTypes.DietTypeList);
                 return true;
@@ -62,13 +62,14 @@ namespace MealsService.Diets
 
         public bool UpdateDietType(DietType request)
         {
-            var dietType = _dbContext.DietTypes.FirstOrDefault(t => t.Id == request.Id);
+            var dbContext =_serviceProvider.GetService<MealsDbContext>();
+            var dietType = dbContext.DietTypes.FirstOrDefault(t => t.Id == request.Id);
 
             dietType.Name = request.Name;
             dietType.Description = request.Description;
             dietType.ShortDescription = request.ShortDescription;
 
-            if (_dbContext.Entry(dietType).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0)
+            if (dbContext.Entry(dietType).State == EntityState.Unchanged || dbContext.SaveChanges() > 0)
             {
                 _localCache.Remove(CacheKeys.DietTypes.DietTypeList);
                 return true;
@@ -79,7 +80,7 @@ namespace MealsService.Diets
 
         private List<DietType> ListDietTypesInternal()
         {
-            return _dbContext.DietTypes.ToList();
+            return _serviceProvider.GetService<MealsDbContext>().DietTypes.ToList();
         }
     }
 }
