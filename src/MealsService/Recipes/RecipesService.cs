@@ -419,7 +419,7 @@ namespace MealsService.Recipes
             return dtos;
         }
 
-        public async Task<RecipeDto> GetRandomRecipeAsync(RandomRecipeRequest request, int userId = 0)
+        public async Task<RecipeDto> GetRandomRecipeAsync(RandomRecipeRequest request, int userId = 0, bool retry = false)
         {
             request.ExcludeTags = request.ExcludeTags?.Select(g => g.ToLower()).ToList();
 
@@ -460,9 +460,13 @@ namespace MealsService.Recipes
             {
                 await TrackRecentRecipeId(userId, recipe.Id);
             }
-
+            else if(!retry)
+            {
+                await ClearRecentRecipeIds(userId);
+                return await GetRandomRecipeAsync(request, userId, true);
+            }
             //TODO: Add logger
-            /*if (recipe == null)
+            /*else
             {
                 throw new Exception("No recipes for type " + request.MealType);
             }*/
@@ -483,6 +487,11 @@ namespace MealsService.Recipes
 
             await _memcache.SetAsync(CacheKeys.Recipes.RecentGenerations(userId), recentIds.Take(RECENT_RECIPES_COUNT),
                 RECENT_RECIPES_CACHE_TTL_SECONDS);
+        }
+
+        public async Task ClearRecentRecipeIds(int userId)
+        {
+            await _memcache.RemoveAsync(CacheKeys.Recipes.RecentGenerations(userId));
         }
 
         public RecipeDto ToRecipeDto(Recipe recipe)
