@@ -43,7 +43,7 @@ namespace MealsService.Tags
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                tags = tags.Where(t => t.Name.Contains(search, StringComparison.InvariantCultureIgnoreCase)).ToList();
+                tags = tags.Where(t => t.Name.Contains(search)).ToList();
             }
 
             return tags;

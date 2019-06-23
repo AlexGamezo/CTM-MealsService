@@ -138,9 +138,9 @@ namespace MealsService.Users
                 {
                     Stream receiveStream = wr.GetResponseStream();
                     StreamReader reader = new StreamReader(receiveStream, Encoding.UTF8);
-                    var content = JsonConvert.DeserializeObject<List<UserDto>>(reader.ReadToEnd());
+                    var content = JsonConvert.DeserializeObject<UserListResponse>(reader.ReadToEnd());
 
-                    return content;
+                    return content.Users;
                 }
             }
             catch (Exception e) {; }
