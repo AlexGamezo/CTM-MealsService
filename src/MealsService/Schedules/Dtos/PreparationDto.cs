@@ -7,9 +7,15 @@ namespace MealsService.Schedules.Dtos
 {
     public class PreparationDto : IEquatable<PreparationDto>
     {
+        private DateTime _date;
+
         public int Id { get; set; }
-        
-        public DateTime Date { get; set; }
+
+        public DateTime Date
+        {
+            get { return _date; }
+            set { _date = DateTime.SpecifyKind(value, DateTimeKind.Unspecified); }
+        }
         public int RecipeId { get; set; }
 
         [JsonConverter(typeof(StringEnumConverter))]

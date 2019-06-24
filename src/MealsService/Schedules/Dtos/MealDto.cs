@@ -6,13 +6,19 @@ namespace MealsService.Responses.Schedules
 {
     public class MealDto
     {
+        private DateTime _date;
+
         public int Id { get; set; }
         public string MealType { get; set; }
         public int RecipeId { get; set; }
         public PreparationDto Preparation { get; set; }
         public ConfirmStatus Confirmed { get; set; }
         public int ScheduleDayId { get; set; }
-        public DateTime Date { get; set; }
+        public DateTime Date
+        {
+            get { return _date; }
+            set { _date = DateTime.SpecifyKind(value, DateTimeKind.Unspecified); }
+        }
         public bool IsChallenge { get; set; }
         public bool IsLeftovers { get; set; }
         public int NumServings { get; set; }
