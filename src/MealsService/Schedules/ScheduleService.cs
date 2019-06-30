@@ -59,7 +59,7 @@ namespace MealsService.Services
             await _subscriptionsService.VerifyDateInSubscriptionAsync(userId, start);
 
             var schedule = await _memcached.GetValueOrCreateAsync(
-                CacheKeys.Schedule.UserSchedule(userId, start.ToDateTimeUnspecified()), 60,
+                CacheKeys.Schedule.UserSchedule(userId, start.GetWeekStart().ToDateTimeUnspecified()), 60,
                 async () => (await GetScheduleInternalAsync(userId, start.GetWeekStart(), end, regenIfEmpty))
                     .Select(ToScheduleDayDto).ToList());
             
