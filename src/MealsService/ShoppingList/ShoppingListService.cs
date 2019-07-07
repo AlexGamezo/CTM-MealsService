@@ -38,7 +38,7 @@ namespace MealsService.ShoppingList
             _subService = subService;
         }
 
-        public async Task<List<ShoppingListItem>> GetShoppingList(int userId, LocalDate weekStart, bool regenIfEmpty = true)
+        public async Task<List<ShoppingListItem>> GetShoppingListAsync(int userId, LocalDate weekStart, bool regenIfEmpty = true)
         {
             await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
 
@@ -53,7 +53,7 @@ namespace MealsService.ShoppingList
             {
                 await GenerateShoppingListAsync(userId, weekStart);
 
-                return await GetShoppingList(userId, weekStart, false);
+                return await GetShoppingListAsync(userId, weekStart, false);
             }
 
             return items;
@@ -170,7 +170,7 @@ namespace MealsService.ShoppingList
             //Make sure the shopping list has been generated before making changes to it
             if (pregenShoppingList)
             {
-                await GetShoppingList(userId, weekStart);
+                await GetShoppingListAsync(userId, weekStart);
             }
 
             var recipeServings = preparations.Where(s => s.RecipeId > 0)
@@ -285,6 +285,42 @@ namespace MealsService.ShoppingList
             }
 
             _dbContext.ShoppingListItems.AddRange(listItems);
+            _dbContext.SaveChanges();
+        }
+
+        public async Task AddBoughtItemAsync(int userId, LocalDate weekStart, ShoppingListItemDto dto)
+        {
+            await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
+
+            var item = FromDto(dto);
+
+            var list = await GetShoppingListAsync(userId, weekStart, false);
+
+            //Prefer checking off items not manually added
+            var foundItems = list.Where(i => i.IngredientId == dto.IngredientId && !i.Checked)
+                .OrderBy(i => i.ManuallyAdded)
+                .ToList();
+
+            foreach (var found in foundItems)
+            {
+                if (found.Amount >= item.Amount)
+                {
+                    found.Checked = true;
+                    item.Amount -= found.Amount;
+                    break;
+                }
+
+                found.Amount -= item.Amount;
+                item.Amount = 0;
+            }
+
+            item.NodaWeekStart = weekStart;
+
+            if (item.Amount >= 0.00001)
+            {
+                _dbContext.ShoppingListItems.Add(item);
+            }
+
             _dbContext.SaveChanges();
         }
 

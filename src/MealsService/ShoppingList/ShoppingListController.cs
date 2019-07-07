@@ -69,7 +69,7 @@ namespace MealsService.ShoppingList
                 throw StandardErrors.InvalidDateSpecified;
             }
 
-            var shoppingList = (await _shoppingListService.GetShoppingList(userId, localDate.GetWeekStart()))
+            var shoppingList = (await _shoppingListService.GetShoppingListAsync(userId, localDate.GetWeekStart()))
                 .Select(_shoppingListService.ToDto)
                 .ToList();
 
@@ -187,6 +187,46 @@ namespace MealsService.ShoppingList
             var response = _shoppingListService.RemoveItem(userId, id);
 
             if (response)
+            {
+                return Json(new SuccessResponse());
+            }
+            else
+            {
+                Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
+            }
+        }
+
+        [Route("{userId:int}/{dateString:datetime}/items/bought"), HttpPost]
+        public async Task<IActionResult> AddBoughtItemAsync(int userId, string dateString, [FromBody]ShoppingListItemDto item)
+        {
+            var claims = HttpContext.User.Claims.ToList();
+            int authorizedId = 0;
+            bool isAdmin = false;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
+            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
+
+            if (userId != authorizedId && !isAdmin)
+            {
+                Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
+            }
+
+            var result = LocalDatePattern.Iso.Parse(dateString);
+            LocalDate localDate;
+            if (result.Success)
+            {
+                localDate = result.Value;
+            }
+            else
+            {
+                throw StandardErrors.InvalidDateSpecified;
+            }
+
+            await _shoppingListService.AddBoughtItemAsync(userId, localDate.GetWeekStart(), item);
+
+            if (item != null)
             {
                 return Json(new SuccessResponse());
             }
