@@ -135,13 +135,15 @@ namespace MealsService.Services
             var weekStart = currentPrep.ScheduleDay.NodaDate.GetWeekStart();
 
             var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+            await shoppingListService.GetShoppingListAsync(userId, weekStart);
+
             shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) });
 
             _scheduleRepo.SetPreparationRecipeId(prepId, recipeId);
 
             currentPrep = _scheduleRepo.GetPreparation(prepId);
 
-            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) }, weekStart);
+            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) }, weekStart, false);
 
             ClearScheduleCache(userId, weekStart);
         }
@@ -209,12 +211,14 @@ namespace MealsService.Services
             }
 
             var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+            await shoppingListService.GetShoppingListAsync(userId, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
+
             shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto>{ ToPreparationDto(currentMeal.Preparation)});
 
             _scheduleRepo.SetMealServings(slotId, numServings);
 
             var prep = _scheduleRepo.GetPreparation(currentMeal.PreparationId);
-            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> {ToPreparationDto(prep)}, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
+            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> {ToPreparationDto(prep)}, currentMeal.ScheduleDay.NodaDate.GetWeekStart(), false);
 
             ClearScheduleCache(userId, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
 
@@ -290,7 +294,9 @@ namespace MealsService.Services
             _scheduleRepo.SaveScheduleDays(new List<ScheduleDay> {scheduleDay});
 
             var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-            await shoppingListService.HandlePreparationsAddedAsync(userId, preparations.Select(ToPreparationDto).ToList(), date.GetWeekStart());
+            await shoppingListService.GetShoppingListAsync(userId, date.GetWeekStart());
+
+            await shoppingListService.HandlePreparationsAddedAsync(userId, preparations.Select(ToPreparationDto).ToList(), date.GetWeekStart(), false);
 
             ClearScheduleCache(userId, date.GetWeekStart());
 
@@ -343,6 +349,8 @@ namespace MealsService.Services
             if (updateShoppingList && preparation.RecipeId > 0)
             {
                 var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
+                await shoppingListService.GetShoppingListAsync(userId, weekBeginning);
+
                 shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto>{ ToPreparationDto(preparation)});
             }
 
@@ -379,7 +387,7 @@ namespace MealsService.Services
                 if (updateShoppingList)
                 {
                     var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-                    await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> { ToPreparationDto(preparation) }, weekBeginning);
+                    await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> { ToPreparationDto(preparation) }, weekBeginning, false);
                 }
 
                 ClearScheduleCache(userId, weekBeginning);
