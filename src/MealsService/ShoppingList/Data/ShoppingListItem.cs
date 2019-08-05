@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using MealsService.Ingredients.Data;
+using MealsService.Schedules.Data;
 using NodaTime;
 
 namespace MealsService.ShoppingList.Data
@@ -23,8 +23,11 @@ namespace MealsService.ShoppingList.Data
         public float Amount { get; set; }
         public bool ManuallyAdded { get; set; }
         public bool Checked { get; set; }
+        [Obsolete("Based on presence of PreparationId now")]
         public bool Unused { get; set; }
         public DateTime WeekStart { get; set; }
+
+        public int? PreparationId { get; set; }
 
         [NotMapped]
         public LocalDate NodaWeekStart
@@ -38,6 +41,6 @@ namespace MealsService.ShoppingList.Data
         /// </summary>
         public Ingredient Ingredient { get; set; }
         public MeasureType MeasureType { get; set; } 
-        public List<ShoppingListItemPreparation> ShoppingListItemPreparations { get; set; }
+        public Preparation Preparation { get; set; }
     }
 }

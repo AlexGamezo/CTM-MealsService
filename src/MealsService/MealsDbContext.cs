@@ -48,7 +48,6 @@ namespace MealsService
         public DbSet<PrepPlanConsumer> PrepPlanConsumers { get; set; }
         
         public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
-        public DbSet<ShoppingListItemPreparation> ShoppingListItemPreparations { get; set; }
 
         //Configurations/User Options
         public DbSet<DietGoal> DietGoals { get; set; }

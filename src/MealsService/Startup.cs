@@ -61,6 +61,7 @@ namespace MealsService
             services.AddScoped<MeasureTypesService>();
 
             services.AddScoped<ShoppingListService>();
+            services.AddScoped<ShoppingListRepository>();
             services.AddScoped<StatsService>();
             services.AddScoped<UsersService>();
             services.AddScoped<RequestContext>();

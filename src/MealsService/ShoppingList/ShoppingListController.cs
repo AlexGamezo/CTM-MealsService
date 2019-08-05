@@ -3,16 +3,15 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using MealsService.Common.Errors;
-using MealsService.Common.Extensions;
-using MealsService.Infrastructure;
-using MealsService.Responses;
-using MealsService.ShoppingList.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using NodaTime.Text;
+
+using MealsService.Common.Errors;
+using MealsService.Common.Extensions;
+using MealsService.Responses;
+using MealsService.ShoppingList.Dtos;
 
 namespace MealsService.ShoppingList
 {
@@ -20,12 +19,10 @@ namespace MealsService.ShoppingList
     public class ShoppingListController : Controller
     {
         private ShoppingListService _shoppingListService { get; }
-        private IServiceProvider _serviceProvider { get; }
-
-        public ShoppingListController(ShoppingListService shoppingListService, IServiceProvider serviceProvider)
+        
+        public ShoppingListController(ShoppingListService shoppingListService)
         {
             _shoppingListService = shoppingListService;
-            _serviceProvider = serviceProvider;
         }
 
         [Authorize]
@@ -70,6 +67,37 @@ namespace MealsService.ShoppingList
             }
 
             var shoppingList = (await _shoppingListService.GetShoppingListAsync(userId, localDate.GetWeekStart()))
+                .Select(_shoppingListService.ToDto)
+                .ToList();
+
+            return Json(new SuccessResponse<object>(new
+            {
+                shoppingList
+            }));
+        }
+
+        [Route("me/{preparationId:int}/items"), HttpGet]
+        [Route("{userId:int}/{preparationId:int}/items"), HttpGet]
+        public async Task<IActionResult> GetForPreparationAsync(int userId, int preparationId)
+        {
+            var claims = HttpContext.User.Claims.ToList();
+            int authorizedId = 0;
+            bool isAdmin = false;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
+            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
+
+            if (userId == 0)
+            {
+                userId = authorizedId;
+            }
+            else if (userId != authorizedId && !isAdmin)
+            {
+                Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
+            }
+
+            var shoppingList = (await _shoppingListService.GetShoppingListForPreparationAsync(userId, preparationId))
                 .Select(_shoppingListService.ToDto)
                 .ToList();
 
@@ -163,6 +191,81 @@ namespace MealsService.ShoppingList
             }
         }
 
+        [Route("me/items")]
+        [Route("{userId:int}/items")]
+        [HttpPut]
+        public async Task<IActionResult> UpdateItems([FromBody]UpdateItemsRequest request, int userId)
+        {
+            var claims = HttpContext.User.Claims.ToList();
+            int authorizedId = 0;
+            bool isAdmin = false;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
+            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
+
+            if (userId == 0)
+            {
+                userId = authorizedId;
+            }
+            else if (userId != authorizedId && !isAdmin)
+            {
+                Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
+            }
+
+            var response = await _shoppingListService.UpdateItemsAsync(userId, request.Items);
+
+            if (response)
+            {
+                return Json(new SuccessResponse());
+            }
+            else
+            {
+                Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
+            }
+        }
+
+        /*[Route("me/items/{id:int}/preparations/{prepId:int}")]
+        [Route("{userId:int}/items/{id:int}/preparations/{prepId:int}")]
+        [HttpPut]
+        public async Task<IActionResult> UpdateItem([FromBody]ShoppingListItemDto request, int userId, int id)
+        {
+            var claims = HttpContext.User.Claims.ToList();
+            int authorizedId = 0;
+            bool isAdmin = false;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
+            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
+
+            if (userId == 0)
+            {
+                userId = authorizedId;
+            }
+            else if (userId != authorizedId && !isAdmin)
+            {
+                Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
+            }
+
+            if (request.Id != id)
+            {
+                request.Id = id;
+            }
+
+            var response = await _shoppingListService.UpdateItemAsync(userId, request);
+
+            if (response)
+            {
+                return Json(new SuccessResponse());
+            }
+            else
+            {
+                Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
+            }
+        }*/
+
         [Route("me/items/{id:int}"), HttpDelete]
         [Route("{userId:int}/items/{id:int}"), HttpDelete]
         public IActionResult RemoveItem(int userId, int id)
@@ -197,7 +300,7 @@ namespace MealsService.ShoppingList
             }
         }
 
-        [Route("{userId:int}/{dateString:datetime}/items/bought"), HttpPost]
+        /*[Route("{userId:int}/{dateString:datetime}/items/bought"), HttpPost]
         public async Task<IActionResult> AddBoughtItemAsync(int userId, string dateString, [FromBody]ShoppingListItemDto item)
         {
             var claims = HttpContext.User.Claims.ToList();
@@ -235,6 +338,6 @@ namespace MealsService.ShoppingList
                 Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
             }
-        }
+        }*/
     }
 }

@@ -66,6 +66,23 @@ namespace MealsService.Services
             return schedule;
         }
 
+        public async Task<PreparationDto> GetPreparationAsync(int userId, int preparationId)
+        {
+            var currentPrep = _scheduleRepo.GetPreparation(preparationId);
+
+            if (currentPrep == null)
+            {
+                throw ScheduleErrors.MissingPreparation;
+            }
+
+            if (currentPrep.UserId != userId)
+            {
+                throw ScheduleErrors.InvalidTargetByUser;
+            }
+
+            return ToPreparationDto(currentPrep);
+        }
+
         public async Task<bool> MoveMealAsync(int userId, int slotId, int dayId)
         {
             //TODO: Verify subscription to allow access to future slots
@@ -143,7 +160,7 @@ namespace MealsService.Services
 
             currentPrep = _scheduleRepo.GetPreparation(prepId);
 
-            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) }, weekStart, false);
+            shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) }, weekStart);
 
             ClearScheduleCache(userId, weekStart);
         }
@@ -218,7 +235,7 @@ namespace MealsService.Services
             _scheduleRepo.SetMealServings(slotId, numServings);
 
             var prep = _scheduleRepo.GetPreparation(currentMeal.PreparationId);
-            await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> {ToPreparationDto(prep)}, currentMeal.ScheduleDay.NodaDate.GetWeekStart(), false);
+            shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> {ToPreparationDto(prep)}, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
 
             ClearScheduleCache(userId, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
 
@@ -296,7 +313,7 @@ namespace MealsService.Services
             var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
             await shoppingListService.GetShoppingListAsync(userId, date.GetWeekStart());
 
-            await shoppingListService.HandlePreparationsAddedAsync(userId, preparations.Select(ToPreparationDto).ToList(), date.GetWeekStart(), false);
+            shoppingListService.HandlePreparationsAdded(userId, preparations.Select(ToPreparationDto).ToList(), date.GetWeekStart());
 
             ClearScheduleCache(userId, date.GetWeekStart());
 
@@ -387,7 +404,7 @@ namespace MealsService.Services
                 if (updateShoppingList)
                 {
                     var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-                    await shoppingListService.HandlePreparationsAddedAsync(userId, new List<PreparationDto> { ToPreparationDto(preparation) }, weekBeginning, false);
+                    shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> { ToPreparationDto(preparation) }, weekBeginning);
                 }
 
                 ClearScheduleCache(userId, weekBeginning);
