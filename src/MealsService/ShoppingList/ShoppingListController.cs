@@ -226,46 +226,6 @@ namespace MealsService.ShoppingList
             }
         }
 
-        /*[Route("me/items/{id:int}/preparations/{prepId:int}")]
-        [Route("{userId:int}/items/{id:int}/preparations/{prepId:int}")]
-        [HttpPut]
-        public async Task<IActionResult> UpdateItem([FromBody]ShoppingListItemDto request, int userId, int id)
-        {
-            var claims = HttpContext.User.Claims.ToList();
-            int authorizedId = 0;
-            bool isAdmin = false;
-
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
-            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
-
-            if (userId == 0)
-            {
-                userId = authorizedId;
-            }
-            else if (userId != authorizedId && !isAdmin)
-            {
-                Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
-            }
-
-            if (request.Id != id)
-            {
-                request.Id = id;
-            }
-
-            var response = await _shoppingListService.UpdateItemAsync(userId, request);
-
-            if (response)
-            {
-                return Json(new SuccessResponse());
-            }
-            else
-            {
-                Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
-            }
-        }*/
-
         [Route("me/items/{id:int}"), HttpDelete]
         [Route("{userId:int}/items/{id:int}"), HttpDelete]
         public IActionResult RemoveItem(int userId, int id)
@@ -299,45 +259,5 @@ namespace MealsService.ShoppingList
                 return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
             }
         }
-
-        /*[Route("{userId:int}/{dateString:datetime}/items/bought"), HttpPost]
-        public async Task<IActionResult> AddBoughtItemAsync(int userId, string dateString, [FromBody]ShoppingListItemDto item)
-        {
-            var claims = HttpContext.User.Claims.ToList();
-            int authorizedId = 0;
-            bool isAdmin = false;
-
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
-            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
-
-            if (userId != authorizedId && !isAdmin)
-            {
-                Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
-            }
-
-            var result = LocalDatePattern.Iso.Parse(dateString);
-            LocalDate localDate;
-            if (result.Success)
-            {
-                localDate = result.Value;
-            }
-            else
-            {
-                throw StandardErrors.InvalidDateSpecified;
-            }
-
-            await _shoppingListService.AddBoughtItemAsync(userId, localDate.GetWeekStart(), item);
-
-            if (item != null)
-            {
-                return Json(new SuccessResponse());
-            }
-            else
-            {
-                Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
-            }
-        }*/
     }
 }
