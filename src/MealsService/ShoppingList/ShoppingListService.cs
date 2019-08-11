@@ -65,7 +65,7 @@ namespace MealsService.ShoppingList
 
         public async Task<List<ShoppingListItem>> GetShoppingListForPreparationAsync(int userId, int preparationId, bool regenIfEmpty = true)
         {
-            var prep = await _scheduleService.GetPreparationAsync(userId, preparationId);
+            var prep = _scheduleService.GetPreparation(userId, preparationId);
 
             var prepShoppingItems = _repository.FetchShoppingListItemsForPreparation(preparationId);
 
@@ -358,7 +358,7 @@ namespace MealsService.ShoppingList
             {
                 Id = item.Id,
                 Checked = item.Checked,
-                Unused = item.Unused,
+                Unused = item.PreparationId == 0,
                 ManuallyAdded = item.ManuallyAdded,
                 IngredientId = item.IngredientId,
                 MeasureTypeId = item.MeasureTypeId,

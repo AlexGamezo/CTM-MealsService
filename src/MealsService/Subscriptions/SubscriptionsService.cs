@@ -62,7 +62,7 @@ namespace MealsService.Users
                     return content;
                 }
             }
-            catch (Exception e) { ; }
+            catch (Exception) { ; }
 
             return null;
         }
@@ -76,7 +76,8 @@ namespace MealsService.Users
 
             var sub = await GetUserSubscription(userId);
 
-            if (sub.UserId != userId ||
+            if (sub == null ||
+                sub.UserId != userId ||
                 (sub.Status != SubscriptionStatus.ACTIVE &&
                 sub.Status != SubscriptionStatus.TRIAL &&
                 dateInstant > curInstant))

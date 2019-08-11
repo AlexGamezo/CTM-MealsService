@@ -233,8 +233,6 @@ namespace MealsService.Recipes
         {
             MealType recipeType;
             Enum.TryParse(request.MealType, out recipeType);
-            var changes = false;
-
             Recipe recipe;
 
             if (id > 0)

@@ -154,8 +154,6 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            var success = false;
-
             if (request.Op == PreparationPatchRequest.Operation.MovePreparation)
             {
                 await _scheduleService.MovePreparationAsync(userId, prepId, request.ScheduleDayId);
@@ -178,7 +176,6 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
             
-            var success = false;
             var result = LocalDatePattern.Iso.Parse(dateString);
             LocalDate localDate;
             if (result.Success)

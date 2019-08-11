@@ -66,7 +66,7 @@ namespace MealsService.Services
             return schedule;
         }
 
-        public async Task<PreparationDto> GetPreparationAsync(int userId, int preparationId)
+        public PreparationDto GetPreparation(int userId, int preparationId)
         {
             var currentPrep = _scheduleRepo.GetPreparation(preparationId);
 
@@ -583,8 +583,8 @@ namespace MealsService.Services
                     {
                         var prefs = await userService.GetUserPreferences(context.UserId);
 
-                        if (!prefs.Preferences.ContainsKey("mealPlanReminder") ||
-                            prefs.Preferences["mealPlanReminder"] != "false")
+                        if (prefs != null && 
+                            (!prefs.Preferences.ContainsKey("mealPlanReminder") || prefs.Preferences["mealPlanReminder"] != "false"))
                         {
                             await SendNextWeekScheduleAsync(user);
                         }

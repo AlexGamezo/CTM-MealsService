@@ -6,12 +6,12 @@
     ScheduleRecipeContainer container = Model;
 }
 <div style="margin: 0 0 20px; background-color: #efefef; padding: 20px 15px; border-radius: 5px; border-bottom-right-radius: 0; border-bottom-left-radius: 0">
-    <a href="https://www.instagram.com/p/Bx2Uj9ypHaC/" style='text-decoration: none'>
+    <a href="https://www.instagram.com/p/B1CDUTQJn_q/" style='text-decoration: none'>
         <div>
             <img src="https://www.greenerplate.com/images/emails/did_you_know.png" style="width: 90%; max-width: 275px;"/>
         </div>
         <div style="padding-top: 10px; font-size: 20px; color: #353">
-            Having just one plant-based meal is like skipping driving your car for <span style="white-space: nowrap;">20 miles</span>?
+            You can now update your shopping list right on your schedule view, per meal?
             <span style="font-weight:bold; font-size:80%">Learn More</span>
         </div>
     </a>
@@ -70,6 +70,11 @@
                     }
 
                     <span>@(ingredient.Name + ",")</span>
+                }
+
+                if (container.Recipes[day.Meals[0].RecipeId].Ingredients.Count > 0)
+                {
+                    break;
                 }
             }
             and a few other things.

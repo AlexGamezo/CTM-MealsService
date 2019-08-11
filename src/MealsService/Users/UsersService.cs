@@ -52,7 +52,7 @@ namespace MealsService.Users
                     return content;
                 }
             }
-            catch (Exception e) { ; }
+            catch (Exception) { ; }
 
             return null;
         }
@@ -85,7 +85,7 @@ namespace MealsService.Users
                     return true;
                 }
             }
-            catch (Exception e) {; }
+            catch (Exception) {; }
 
             return false;
         }
@@ -113,7 +113,7 @@ namespace MealsService.Users
                     return content;
                 }
             }
-            catch (Exception e) { ; }
+            catch (Exception) { ; }
 
             return null;
         }
@@ -143,9 +143,9 @@ namespace MealsService.Users
                     return content.Users;
                 }
             }
-            catch (Exception e) {; }
+            catch (Exception) {; }
 
-            return null;
+            return new List<UserDto>();
         }
     }
 }
