@@ -34,13 +34,15 @@ namespace MealsService.Services
         private RecipesService _recipesService;
         private SubscriptionsService _subscriptionsService;
         private IServiceProvider _serviceProvider;
+        private StatsService _statsService;
         private IMemcachedClient _memcached;
 
         private ScheduleRepository _scheduleRepo;
 
         private ILogger<ScheduleService> _logger;
 
-        public ScheduleService(DietService dietService, RecipesService recipesService, SubscriptionsService subscriptionService, IServiceProvider serviceProvider)
+        public ScheduleService(DietService dietService, RecipesService recipesService, SubscriptionsService subscriptionService,
+            StatsService statsService, IServiceProvider serviceProvider)
         {
             _scheduleRepo = new ScheduleRepository(serviceProvider);
 
@@ -48,6 +50,7 @@ namespace MealsService.Services
             _recipesService = recipesService;
             _subscriptionsService = subscriptionService;
             _serviceProvider = serviceProvider;
+            _statsService = statsService;
 
             _memcached = _serviceProvider.GetService<IMemcachedClient>();
 
@@ -611,11 +614,14 @@ namespace MealsService.Services
                 var recipeIds = schedule.SelectMany(d => d.Meals?.Select(m => m.RecipeId).ToList() ?? new List<int>())
                     .ToList();
 
+                var stat = _statsService.GetDidYouKnowStat();
+
                 var model = new ScheduleRecipeContainer
                 {
                     Schedule = schedule,
                     Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds)
-                        .ToDictionary(r => r.Id, r => r)
+                        .ToDictionary(r => r.Id, r => r),
+                    DidYouKnowStat = stat
                 };
 
                 return await _serviceProvider.GetService<EmailService>()

@@ -66,6 +66,24 @@ namespace MealsService.Stats
             return PersonalizeStatements(userId, statements);
         }
 
+        public DidYouKnowStat GetDidYouKnowStat()
+        {
+            var curDate = SystemClock.Instance.GetCurrentInstant().InUtc().LocalDateTime.ToDateTimeUnspecified().Date;
+
+            var stat = _dbContext.DidYouKnowStats.Where(s => s.Date >= curDate).OrderBy(s => s.Date).FirstOrDefault();
+
+            if(stat == null)
+            {
+                stat = new DidYouKnowStat
+                {
+                    Link = "https://www.instagram.com/p/Bx2Uj9ypHaC/",
+                    Text = "For Greenhouse Gases, having just one plant-based meal is like skipping driving your car for <span style=\"white - space:nowrap\">20 miles</span>?"
+                };
+            }
+
+            return stat;
+        }
+
         public async Task TrackCompletionAsync(int userId, int increment, bool isChallenge)
         {
             if (increment != 0)

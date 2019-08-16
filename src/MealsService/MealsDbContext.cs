@@ -32,6 +32,7 @@ namespace MealsService
         public DbSet<RecipeVote> RecipeVotes { get; set; }
 
         public DbSet<ImpactStatement> ImpactStatements { get; set; }
+        public DbSet<DidYouKnowStat> DidYouKnowStats { get; set; }
         public DbSet<StatSnapshot> StatSnapshots { get; set; }
         public DbSet<StatSummary> StatSummaries { get; set; }
 
