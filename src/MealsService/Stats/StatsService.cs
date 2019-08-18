@@ -84,6 +84,47 @@ namespace MealsService.Stats
             return stat;
         }
 
+        public List<DidYouKnowStat> ListDidYouKnowStats(DateTime? minDate = null, DateTime? maxDate = null, int maxCount = 30, int skip = 0)
+        {
+            IQueryable<DidYouKnowStat> statsQuery = _dbContext.DidYouKnowStats;
+
+            if (minDate.HasValue) {
+                statsQuery = statsQuery.Where(s => s.Date >= minDate);
+            }
+            if(maxDate.HasValue)
+            {
+                statsQuery = statsQuery.Where(s => s.Date <= maxDate);
+            }
+
+
+            var stats = statsQuery
+                .OrderBy(s => s.Date)
+                .Skip(skip)
+                .Take(maxCount)
+                .ToList();
+
+            return stats;
+        }
+
+        public DidYouKnowStat AddDidYouKnowStat(DidYouKnowStat stat)
+        {
+            stat.Id = 0;
+
+            _dbContext.Add(stat);
+            if(_dbContext.SaveChanges() > 0)
+            {
+                return stat;
+            }
+
+            return null;
+        }
+
+        public bool UpdateDidYouKnowStat(DidYouKnowStat stat)
+        {
+            _dbContext.Add(stat);
+            return _dbContext.SaveChanges() > 0;
+        }
+
         public async Task TrackCompletionAsync(int userId, int increment, bool isChallenge)
         {
             if (increment != 0)
