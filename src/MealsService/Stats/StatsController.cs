@@ -100,7 +100,8 @@ namespace MealsService.Stats
                 throw StandardErrors.ForbiddenRequest;
             }
 
-            var updatedStat = _statsService.AddDidYouKnowStat(stat);
+            stat.Id = 0;
+            var updatedStat = _statsService.SaveDidYouKnowStat(stat);
 
             return Json(new
             {
@@ -116,7 +117,7 @@ namespace MealsService.Stats
                 throw StandardErrors.ForbiddenRequest;
             }
 
-            var success = _statsService.UpdateDidYouKnowStat(stat);
+            var success = _statsService.SaveDidYouKnowStat(stat) != null;
             
             return Json(new SuccessResponse(success));
         }

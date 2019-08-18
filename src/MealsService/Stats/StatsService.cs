@@ -11,6 +11,7 @@ using MealsService.Stats.Data;
 using MealsService.Stats.Extensions;
 using MealsService.Users;
 using MealsService.Users.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -77,7 +78,7 @@ namespace MealsService.Stats
                 stat = new DidYouKnowStat
                 {
                     Link = "https://www.instagram.com/p/Bx2Uj9ypHaC/",
-                    Text = "For Greenhouse Gases, having just one plant-based meal is like skipping driving your car for <span style=\"white - space:nowrap\">20 miles</span>?"
+                    Text = "For Greenhouse Gases, having just one plant-based meal is like skipping driving your car for <span style=\"white-space:nowrap\">20 miles</span>?"
                 };
             }
 
@@ -106,23 +107,31 @@ namespace MealsService.Stats
             return stats;
         }
 
-        public DidYouKnowStat AddDidYouKnowStat(DidYouKnowStat stat)
+        public DidYouKnowStat SaveDidYouKnowStat(DidYouKnowStat stat)
         {
-            stat.Id = 0;
+            if (stat.Id > 0)
+            {
+                var tracked = _dbContext.ChangeTracker.Entries<DidYouKnowStat>()
+                    .FirstOrDefault(m => m.Entity.Id == stat.Id);
+                if (tracked != null)
+                {
+                    _dbContext.Entry(tracked.Entity).State = EntityState.Detached;
+                }
+                _dbContext.DidYouKnowStats.Attach(stat);
+                _dbContext.Entry(stat).State = EntityState.Modified;
+            }
+            else
+            {
+                stat.Id = 0;
+                _dbContext.DidYouKnowStats.Add(stat);
+            }
 
-            _dbContext.Add(stat);
-            if(_dbContext.SaveChanges() > 0)
+            if (_dbContext.SaveChanges() > 0)
             {
                 return stat;
             }
 
             return null;
-        }
-
-        public bool UpdateDidYouKnowStat(DidYouKnowStat stat)
-        {
-            _dbContext.Add(stat);
-            return _dbContext.SaveChanges() > 0;
         }
 
         public async Task TrackCompletionAsync(int userId, int increment, bool isChallenge)
