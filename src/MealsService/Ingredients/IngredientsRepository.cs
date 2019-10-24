@@ -1,77 +1,100 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 using MealsService.Ingredients.Data;
+using MealsService.Tags;
 
 namespace MealsService.Ingredients
 {
-    public class IngredientsRepository
+    public class IngredientsRepository : IIngredientsRepository
     {
-        private IServiceProvider _serviceContainer;
+        private ITagsService _tagsService;
+        private MealsDbContext _dbContext;
 
-        public IngredientsRepository(IServiceProvider serviceContainer)
+        public IngredientsRepository(MealsDbContext dbContext, ITagsService tagsService)
         {
-            _serviceContainer = serviceContainer;
+            _dbContext = dbContext;
+            _tagsService = tagsService;
         }
 
         public List<Ingredient> ListIngredients()
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
-            return dbContext.Ingredients
+            return _dbContext.Ingredients
                 .Include(i => i.IngredientTags)
                 .ThenInclude(it => it.Tag)
-                .Include(i => i.IngredientMeasureTypes)
+                //.Include(i => i.IngredientMeasureTypes)
                 .Include(i => i.IngredientCategory)
-                .ToList(); ;
+                .ToList();
         }
 
         public List<IngredientCategory> ListIngredientCategories()
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
-            return dbContext.IngredientCategories
+            return _dbContext.IngredientCategories
                 .ToList();
         }
 
         public bool SaveIngredient(Ingredient ingredient)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
             if (ingredient.Id > 0)
             {
-                var tracked = dbContext.ChangeTracker.Entries<Ingredient>()
+                var tracked = _dbContext.ChangeTracker.Entries<Ingredient>()
                     .FirstOrDefault(m => m.Entity.Id == ingredient.Id);
                 if (tracked != null)
                 {
-                    dbContext.Entry(tracked.Entity).State = EntityState.Detached;
+                    _dbContext.Entry(tracked.Entity).State = EntityState.Detached;
                 }
-                dbContext.Ingredients.Attach(ingredient);
-                dbContext.Entry(ingredient).State = EntityState.Modified;
+                _dbContext.Ingredients.Attach(ingredient);
+                _dbContext.Entry(ingredient).State = EntityState.Modified;
             }
             else
             {
-                dbContext.Ingredients.Add(ingredient);
+                _dbContext.Ingredients.Add(ingredient);
             }
 
-            return dbContext.SaveChanges() > 0;
+            return _dbContext.SaveChanges() > 0;
         }
 
-        public bool SetTags(Ingredient ingredient, List<int> tags)
+        public bool SaveIngredientCategory(IngredientCategory category)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
+            if (category.Id > 0)
+            {
+                var tracked = _dbContext.ChangeTracker.Entries<IngredientCategory>()
+                    .FirstOrDefault(m => m.Entity.Id == category.Id);
+                if (tracked != null)
+                {
+                    _dbContext.Entry(tracked.Entity).State = EntityState.Detached;
+                }
+                _dbContext.IngredientCategories.Attach(category);
+                _dbContext.Entry(category).State = EntityState.Modified;
+            }
+            else
+            {
+                _dbContext.IngredientCategories.Add(category);
+            }
+
+            return _dbContext.SaveChanges() > 0;
+        }
+
+        public bool SetTags(int ingredientId, List<string> tagStrings)
+        {
+            var tags = _tagsService.GetOrCreateTags(tagStrings);
+            var ingredient = ListIngredients().FirstOrDefault(i => i.Id == ingredientId);
+
+            if(ingredient == null)
+            {
+                throw Common.Errors.StandardErrors.MissingRequestedItem;
+            }
+
             var changes = false;
 
             for (var i = 0; i < tags.Count; i++)
             {
                 if (ingredient.IngredientTags?.Count > i)
                 {
-                    if (ingredient.IngredientTags[i].TagId != tags[i])
+                    if (ingredient.IngredientTags[i].TagId != tags[i].Id)
                     {
-                        ingredient.IngredientTags[i].TagId = tags[i];
+                        ingredient.IngredientTags[i].TagId = tags[i].Id;
                         changes = true;
                     }
                 }
@@ -82,7 +105,7 @@ namespace MealsService.Ingredients
                     {
                         ingredient.IngredientTags = new List<IngredientTag>();
                     }
-                    ingredient.IngredientTags.Add(new IngredientTag { TagId = tags[i] });
+                    ingredient.IngredientTags.Add(new IngredientTag { TagId = tags[i].Id });
                 }
             }
             if (tags.Count < ingredient.IngredientTags.Count)
@@ -91,70 +114,38 @@ namespace MealsService.Ingredients
                 var toDelete = ingredient.IngredientTags.GetRange(tags.Count, countToRemove);
 
                 changes = true;
-                dbContext.IngredientTags.RemoveRange(toDelete);
+                _dbContext.IngredientTags.RemoveRange(toDelete);
             }
 
-            return !changes || dbContext.SaveChanges() > 0;
+            return !changes || _dbContext.SaveChanges() > 0;
         }
 
-        public bool SetMeasurementTypes(Ingredient ingredient, List<int> measurements)
+        public bool DeleteIngredientById(int ingredientId)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-            var changes = false;
+            var ingredient = ListIngredients().FirstOrDefault(i => i.Id == ingredientId);
 
-            for (var i = 0; i < measurements.Count; i++)
+            if(ingredient != null)
             {
-                if (ingredient.IngredientMeasureTypes?.Count > i)
-                {
-                    if (ingredient.IngredientMeasureTypes[i].MeasureTypeId != measurements[i])
-                    {
-                        ingredient.IngredientMeasureTypes[i].MeasureTypeId = measurements[i];
-                        changes = true;
-                    }
-                }
-                else
-                {
-                    changes = true;
-                    if (ingredient.IngredientMeasureTypes == null)
-                    {
-                        ingredient.IngredientMeasureTypes = new List<IngredientMeasureType>();
-                    }
-                    ingredient.IngredientMeasureTypes.Add(new IngredientMeasureType { MeasureTypeId = measurements[i] });
-                }
-            }
-            if (measurements.Count < ingredient.IngredientMeasureTypes.Count)
-            {
-                var countToRemove = ingredient.IngredientMeasureTypes.Count - measurements.Count;
-                var toDelete = ingredient.IngredientMeasureTypes.GetRange(measurements.Count, countToRemove);
-
-                changes = true;
-                dbContext.IngredientMeasureTypes.RemoveRange(toDelete);
+                _dbContext.Remove(ingredient);
+                return _dbContext.SaveChanges() > 0;
             }
 
-            return !changes || dbContext.SaveChanges() > 0;
+            return false;
         }
-
-        public bool SaveIngredientCategory(IngredientCategory category)
+        
+        public bool DeleteIngredientCategoryById(int categoryId)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
+            //var category = ListIngredientCategories().FirstOrDefault(c => c.Id == categoryId);
+            var category = _dbContext.IngredientCategories.FirstOrDefault(c => c.Id == categoryId);
 
-            if (category.Id > 0)
+            if (category != null)
             {
-                var tracked = dbContext.ChangeTracker.Entries<IngredientCategory>()
-                    .FirstOrDefault(m => m.Entity.Id == category.Id);
-                if (tracked != null)
-                {
-                    dbContext.Entry(tracked.Entity).State = EntityState.Detached;
-                }
-                dbContext.IngredientCategories.Attach(category);
-                dbContext.Entry(category).State = EntityState.Modified;
-            }
-            else
-            {
-                dbContext.IngredientCategories.Add(category);
+                _dbContext.IngredientCategories.Remove(category);
+
+                return _dbContext.SaveChanges() > 0;
             }
 
-            return dbContext.SaveChanges() > 0;
+            return false;
         }
     }
 }

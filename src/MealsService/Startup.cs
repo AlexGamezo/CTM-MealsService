@@ -16,6 +16,7 @@ using MealsService.Recipes;
 using MealsService.Services;
 using MealsService.Diets;
 using MealsService.Email;
+using MealsService.Images;
 using MealsService.Infrastructure;
 using MealsService.Ingredients;
 using MealsService.ShoppingList;
@@ -53,12 +54,16 @@ namespace MealsService
             services.AddMvc();
             services.AddScoped<RecipesService>();
             services.AddScoped<ScheduleService>();
-            services.AddScoped<IngredientsService>();
-            services.AddScoped<TagsService>();
+            services.AddScoped<IIngredientsService, IngredientsService>();
+            services.AddScoped<ITagsService, TagsService>();
             services.AddScoped<DietTypeService>();
             services.AddScoped<DietService>();
             services.AddScoped<SubscriptionsService>();
             services.AddScoped<MeasureTypesService>();
+            services.AddScoped<IImageService, ImageService>();
+
+            services.AddScoped<IIngredientsRepository, IngredientsRepository>();
+            services.AddScoped<ITagRepository, TagRepository>();
 
             services.AddScoped<ShoppingListService>();
             services.AddScoped<ShoppingListRepository>();

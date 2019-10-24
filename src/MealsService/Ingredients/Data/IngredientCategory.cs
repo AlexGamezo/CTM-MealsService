@@ -1,5 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Runtime.Serialization;
 
 namespace MealsService.Ingredients.Data
 {
@@ -13,5 +15,8 @@ namespace MealsService.Ingredients.Data
         public string Name { get; set; }
         
         public int Order { get; set; }
+
+        [IgnoreDataMember]
+        public List<Ingredient> Ingredients { get; set; }
     }
 }

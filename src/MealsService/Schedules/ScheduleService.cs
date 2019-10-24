@@ -31,7 +31,8 @@ namespace MealsService.Services
     public class ScheduleService
     {
         private DietService _dietService;
-        private RecipesService _recipesService;
+        private IRecipesService _recipesService;
+        private IUserRecipesService _userRecipesService;
         private SubscriptionsService _subscriptionsService;
         private IServiceProvider _serviceProvider;
         private StatsService _statsService;
@@ -41,13 +42,14 @@ namespace MealsService.Services
 
         private ILogger<ScheduleService> _logger;
 
-        public ScheduleService(DietService dietService, RecipesService recipesService, SubscriptionsService subscriptionService,
+        public ScheduleService(DietService dietService, IUserRecipesService userRecipesService, IRecipesService recipesService, SubscriptionsService subscriptionService,
             StatsService statsService, IServiceProvider serviceProvider)
         {
             _scheduleRepo = new ScheduleRepository(serviceProvider);
 
             _dietService = dietService;
             _recipesService = recipesService;
+            _userRecipesService = userRecipesService;
             _subscriptionsService = subscriptionService;
             _serviceProvider = serviceProvider;
             _statsService = statsService;
@@ -278,11 +280,9 @@ namespace MealsService.Services
                     DietTypeId = scheduleDay.DietTypeId,
                     MealType = mealType,
                 };
-                
-                //TODO: preference recipes not present this week
-                //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
-                var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
 
+                var recipe = await _userRecipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
+                
                 var prep = new Preparation
                 {
                     UserId = userId,
@@ -382,7 +382,7 @@ namespace MealsService.Services
                 MealType = preparation.MealType,
             };
 
-            var myVotes = await _recipesService.GetVotesAsync(userId);
+            var myVotes = await _userRecipesService.ListRecipeVotesAsync(userId);
 
             var recipeWeights = new Dictionary<int, int>
             {
@@ -397,11 +397,9 @@ namespace MealsService.Services
                     recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
                 }
             }
-            
-            //TODO: preference recipes not present this week
-            //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
-            var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
-            
+
+            var recipe = await _userRecipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
+
             if (recipe != null && recipe.Id != preparation.RecipeId && _scheduleRepo.SetPreparationRecipeId(preparationId, recipe.Id))
             {
                 if (updateShoppingList)
@@ -435,7 +433,7 @@ namespace MealsService.Services
             _scheduleRepo.TrackScheduleGeneration(userId, start.ToDateTimeUnspecified(), end.ToDateTimeUnspecified());
 
             //TODO: Take into account schedule for days/weeks before and after this timeframe
-            var myVotes = await _recipesService.GetVotesAsync(userId);
+            var myVotes = await _userRecipesService.ListRecipeVotesAsync(userId);
 
             var usedRecipeCounts = new Dictionary<int, int>();
             foreach (var vote in myVotes)
@@ -493,7 +491,7 @@ namespace MealsService.Services
                 randomRecipeRequest.DietTypeId = genDay.DietTypeId;
                 randomRecipeRequest.MealType = generator.MealType;
 
-                var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
+                var recipe = await _userRecipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
 
                 if (recipe != null)
                 {

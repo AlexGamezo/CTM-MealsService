@@ -1,12 +1,12 @@
-﻿
-using System;
-using System.Net;
+﻿using System.Net;
 using System.Threading.Tasks;
-using MealsService.Configurations;
-using MealsService.Infrastructure;
 using Microsoft.Extensions.Options;
+
 using SendGrid;
 using SendGrid.Helpers.Mail;
+
+using MealsService.Configurations;
+using MealsService.Infrastructure;
 
 namespace MealsService.Email
 {

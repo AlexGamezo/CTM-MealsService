@@ -17,6 +17,10 @@
     <Compile Remove="Migrations\20171214023001_added slug for Recipes.Designer.cs" />
     <Compile Remove="Migrations\20180207151446_test.cs" />
     <Compile Remove="Migrations\20180207151446_test.Designer.cs" />
+    <Compile Remove="Migrations\20191012042600_required ingredient category relationship.cs" />
+    <Compile Remove="Migrations\20191012042600_required ingredient category relationship.Designer.cs" />
+    <Compile Remove="Migrations\20191012042749_required ingredient category relationship.cs" />
+    <Compile Remove="Migrations\20191012042749_required ingredient category relationship.Designer.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -67,6 +71,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="2.2.0" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="2.2.0" />
     <PackageReference Include="System.Linq.Queryable" Version="4.3.0" />
+    <PackageReference Include="UnitsNet" Version="4.39.0" />
   </ItemGroup>
 
   <ItemGroup>

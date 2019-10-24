@@ -28,6 +28,7 @@ namespace MealsService.Ingredients.Data
         public string Image { get; set; }
         public string Category => IngredientCategory?.Name ?? "";
         //public bool KitchenStaple { get; set; }
+        public int? CategoryId { get; set; }
 
         public List<string> Tags
         {
@@ -40,15 +41,7 @@ namespace MealsService.Ingredients.Data
             }
         }
 
-        public List<int> MeasureTypes
-        {
-            get
-            {
-                return IngredientMeasureTypes?
-                    .Select(it => it.MeasureTypeId )
-                    .ToList() ?? new List<int>();
-            }
-        }
+        public string MeasurementType { get; set; }
 
         /// <summary>
         /// Relationships
@@ -58,7 +51,7 @@ namespace MealsService.Ingredients.Data
         public IngredientCategory IngredientCategory { get; set; }
         [IgnoreDataMember]
         public List<IngredientTag> IngredientTags { get; set; } = new List<IngredientTag>();
-        [IgnoreDataMember]
-        public List<IngredientMeasureType> IngredientMeasureTypes { get; set; } = new List<IngredientMeasureType>();
+        //[IgnoreDataMember]
+        //public List<IngredientMeasureType> IngredientMeasureTypes { get; set; } = new List<IngredientMeasureType>();
     }
 }
