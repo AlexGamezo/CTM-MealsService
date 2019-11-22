@@ -2,67 +2,49 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 
 using MealsService.Common;
 using MealsService.Common.Errors;
+using MealsService.Ingredients;
 using MealsService.Requests;
 using MealsService.Recipes.Dtos;
 using MealsService.Recipes.Data;
-using MealsService.Recipes.Strategies;
 
 namespace MealsService.Recipes
 {
-    public interface IRecipesService
-    {
-        List<RecipeDto> ListRecipes(RecipeListRequest request = null);
-        List<RecipeDto> SearchRecipes(RecipeSearchRequest request);
-        RecipeDto GetRecipe(int recipeId);
-        RecipeDto GetRecipeBySlug(string slug);
-
-        List<Recipe> FindRecipesById(IEnumerable<int> ids);
-        Recipe FindRecipeById(int id);
-        List<Recipe> FindRecipesBySlug(IEnumerable<string> slugs);
-        Recipe FindRecipeBySlug(string slug);
-        RecipeDto SaveRecipe(RecipeDto recipe);
-        bool DeleteRecipe(int recipeId);
-    }
-
-    public interface IUserRecipesService
-    {
-        Task<List<RecipeVoteDto>> ListRecipeVotesAsync(int userId);
-        bool AddRecipeVote(int userId, int recipeId, RecipeVote.VoteType vote);
-        Task<bool> PopulateRecipeVotesAsync(List<RecipeDto> recipes, int userId);
-        Task<RecipeDto> GetRandomRecipeAsync(RandomRecipeRequest request, int userId, bool retry = false);
-    }
-
     public class RecipesService : IRecipesService
     {
-        /*private string _recipeImagesBucketName;
-        private string _region;*/
-
         private IRecipeRepository _repository;
 
         private IMemoryCache _localCache;
+        private IIngredientsService _ingredientsService;
 
         private const int RECIPE_CACHE_TTL_SECONDS = 15 * 60;
         
-        public RecipesService(IRecipeRepository recipeRepo, IMemoryCache memoryCache)
+        public RecipesService(IRecipeRepository recipeRepo, IIngredientsService ingredientsService, IMemoryCache memoryCache)
         {
+            _ingredientsService = ingredientsService;
+
             _repository = recipeRepo;
             _localCache = memoryCache;
-
-            /*_s3Client = s3Client;
-            _recipeImagesBucketName = options.Value.RecipeImagesBucket;
-            _region = options.Value.Region;*/
         }
 
         public List<RecipeDto> ListRecipes(RecipeListRequest request = null)
         {
-            return ListRecipesInternal()
+            var dtos = ListRecipesInternal()
                 .Select(r => r.ToDto())
                 .ToList();
+
+            dtos.ForEach(NormalizeIngredientsForRecipe);
+
+            return dtos;
+        }
+
+        private void NormalizeIngredientsForRecipe(RecipeDto dto)
+        {
+            var measuredIngredients = dto.Ingredients.Select(i => i.MeasuredIngredient).ToList();
+            measuredIngredients.ForEach(_ingredientsService.NormalizeMeasuredIngredient);
         }
 
         public List<RecipeDto> SearchRecipes(RecipeSearchRequest request)
@@ -97,7 +79,10 @@ namespace MealsService.Recipes
                 recipes = recipes.Where(m => m.MealType == request.MealType);
             }
             
-            return recipes.Select(r => r.ToDto()).ToList();
+            var dtos = recipes.Select(r => r.ToDto()).ToList();
+            dtos.ForEach(NormalizeIngredientsForRecipe);
+
+            return dtos;
         }
 
         public RecipeDto GetRecipe(int id)
@@ -123,7 +108,10 @@ namespace MealsService.Recipes
 
         public List<RecipeDto> GetRecipes(IEnumerable<int> ids)
         {
-            return FindRecipesById(ids).Select(r => r.ToDto()).ToList();
+            var dtos = FindRecipesById(ids).Select(r => r.ToDto()).ToList();
+            dtos.ForEach(NormalizeIngredientsForRecipe);
+
+            return dtos;
         }
         
         public Recipe FindRecipeById(int id)
@@ -140,57 +128,24 @@ namespace MealsService.Recipes
 
         public RecipeDto SaveRecipe(RecipeDto recipeDto)
         {
+            var measuredIngredients = recipeDto.Ingredients.Select(i => i.MeasuredIngredient).ToList();
+            measuredIngredients.ForEach(_ingredientsService.DenormalizeMeasuredIngredient);
+            
             var recipe = recipeDto.FromDto();
 
-            if (_repository.SaveRecipe(recipe))
+            if (string.IsNullOrEmpty(recipe.Slug))
             {
-                return recipe.ToDto();
+                recipe.Slug = GenerateSlug(recipe.Name, recipeDto.Id);
             }
 
-            return recipe.ToDto();
-        }
-
-        public RecipeDto UpdateRecipe(int id, UpdateRecipeRequest request)
-        {
-            MealType recipeType;
-            Enum.TryParse(request.MealType, out recipeType);
-            Recipe recipe;
-
-            if (id > 0)
-            {
-                recipe = FindRecipeById(id);
-            }
-            else
-            {
-                recipe = new Recipe();
-            }
-
-            recipe.Name = request.Name;
-
-            if (!string.IsNullOrEmpty(request.Slug))
-            {
-                recipe.Slug = request.Slug;
-            }
-            else if(string.IsNullOrEmpty(recipe.Slug))
-            {
-                recipe.Slug = GenerateSlug(request.Name, id);
-            }
-
-            recipe.Brief = request.Brief;
-            recipe.Description = request.Description;
-            recipe.CookTime = request.CookTime;
-            recipe.PrepTime = request.PrepTime;
-            recipe.NumServings = request.NumServings;
-            recipe.Image = request.Image;
-            recipe.MealType = recipeType;
-            recipe.Source = request.Source;
+            var recipeIngredients = recipe.RecipeIngredients;
 
             if (_repository.SaveRecipe(recipe) &&
-                _repository.SetDietTypes(recipe.Id, request.DietTypeIds) &&
-                _repository.SetRecipeIngredients(recipe.Id, request.Ingredients) &&
-                _repository.SetRecipeSteps(recipe.Id, request.Steps))
+                _repository.SetDietTypes(recipe.Id, recipeDto.DietTypes) &&
+                _repository.SetRecipeIngredients(recipe.Id, recipeIngredients) &&
+                _repository.SetRecipeSteps(recipe.Id, recipeDto.Steps))
             {
-                return GetRecipe(recipe.Id);
+                return recipe.ToDto();
             }
 
             return null;
@@ -248,11 +203,6 @@ namespace MealsService.Recipes
             }
 
             return false;
-
-            /*foreach (var slot in _dbContext.Meals.Where(s => s.RecipeId == id))
-            {
-                slot.RecipeId = 0;
-            }*/
         }
     }
 }

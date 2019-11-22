@@ -14,7 +14,7 @@ namespace MealsService.Diets.Data
         public int PrepPlanId { get; set; }
         public int DayOfWeek { get; set; }
         public MealType MealType { get; set; }
-        public int NumServings { get; set; }
+        /*public int NumServings { get; set; }*/
 
         public List<PrepPlanConsumer> Consumers { get; set; }
     }

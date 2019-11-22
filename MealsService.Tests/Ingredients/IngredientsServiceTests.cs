@@ -13,7 +13,7 @@ using MealsService.Ingredients.Data;
 using MealsService.Ingredients.Dtos;
 using MealsService.Tags.Data;
 
-namespace MealsService.Tests
+namespace MealsService.Tests.Ingredients
 {
     public class IngredientsServiceTests
     {
@@ -102,6 +102,11 @@ namespace MealsService.Tests
             A.CallTo(() => fakeRepository.ListIngredientCategories())
                 .ReturnsLazily(() => ingredientCategories.Values.ToList());
 
+            A.CallTo(() => fakeRepository.DeleteIngredientById(A<int>.Ignored))
+                .ReturnsLazily((int id) => ingredients.Remove(id));
+            A.CallTo(() => fakeRepository.DeleteIngredientCategoryById(A<int>.Ignored))
+                .ReturnsLazily((int id) => ingredientCategories.Remove(id));
+
             return fakeRepository;
         }
 
@@ -176,6 +181,7 @@ namespace MealsService.Tests
             ingredient.CategoryId.Should().NotBeNull();
             ingredient.IngredientCategory.Should().NotBeNull();
             ingredient.IngredientCategory.Name.Should().Be("new category");
+            ingredient.IngredientCategory.Id.Should().NotBe(0);
         }
 
         [Test]
@@ -282,6 +288,118 @@ namespace MealsService.Tests
             redIngredients.Should().NotContain((i => i.Name == "pepper (black)"));
 
             _ingredientsService.SearchIngredients("red").Count.Should().Be(redIngredients.Count);
+        }
+
+        [Test]
+        public void GetSpecificIngredientsByIdTest()
+        {
+            _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Pepper (black)"
+            });
+            _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Tomatoes (Cherry)"
+            });
+            _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Red Cherries"
+            });
+            _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Plum (Red)"
+            });
+
+            var ingredients = _ingredientsService.GetIngredients(new List<int> {1, 2});
+            ingredients.Should().NotBeNullOrEmpty();
+            ingredients.Count.Should().Be(2);
+            ingredients[0].Id.Should().Be(1);
+            ingredients[1].Id.Should().Be(2);
+        }
+
+        [Test]
+        public void GetSpecificIngredientsByTagsTest()
+        {
+            var ing1 = _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Pepper (black)"
+            });
+            var ing2 = _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Tomatoes (Cherry)"
+            });
+            var ing3 = _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Red Cherries"
+            });
+            var ing4 = _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Plum (Red)"
+            });
+
+            _ingredientsService.SetIngredientTags(1, new List<string> {"tag1", "tag empty", "test"});
+            _ingredientsService.SetIngredientTags(2, new List<string> {"tag1"});
+            _ingredientsService.SetIngredientTags(3, new List<string> {"test"});
+
+            var twoTagIngredients = _ingredientsService.GetIngredientsByTags(new List<string> {"tag1", "test"});
+            twoTagIngredients.Should().NotBeNullOrEmpty();
+            twoTagIngredients.Count.Should().Be(3);
+            twoTagIngredients[0].Id.Should().Be(1);
+            twoTagIngredients[1].Id.Should().Be(2);
+            twoTagIngredients[2].Id.Should().Be(3);
+
+            var oneTagIngredients = _ingredientsService.GetIngredientsByTags(new List<string> {"tag empty"});
+            oneTagIngredients.Should().NotBeNullOrEmpty();
+            oneTagIngredients.Count.Should().Be(1);
+        }
+
+        [Test]
+        public void DeleteIngredientTest()
+        {
+            var ing1 = _ingredientsService.SaveIngredient(new IngredientDto
+            {
+                Name = "Pepper (black)"
+            });
+
+            var ingredients = _ingredientsService.ListIngredients();
+            ingredients.Should().NotBeNullOrEmpty();
+            ingredients.Count.Should().Be(1);
+
+
+            _ingredientsService.DeleteIngredient(ing1.Id);
+
+            A.CallTo(() => _fakeRepository.DeleteIngredientById(1))
+                .MustHaveHappenedOnceExactly();
+            A.CallTo(() => _memoryCache.Remove(CacheKeys.Ingredients.IngredientsList))
+                .MustHaveHappened(2, Times.Exactly);
+
+            ingredients = _ingredientsService.ListIngredients();
+            ingredients.Should().NotBeNull();
+            ingredients.Should().BeEmpty();
+        }
+
+        [Test]
+        public void DeleteIngredientCategoryTest()
+        {
+            var ingredientCategory = _ingredientsService.SaveIngredientCategory(new IngredientCategory
+            {
+                Name = "Category to Delete"
+            });
+
+            var ingredientCategories = _ingredientsService.ListIngredientCategories();
+            ingredientCategories.Should().NotBeNullOrEmpty();
+            ingredientCategories.Should().Contain(c => c.Name == ingredientCategory.Name);
+
+            _ingredientsService.DeleteIngredientCategory(ingredientCategory.Id);
+
+            A.CallTo(() => _fakeRepository.DeleteIngredientCategoryById(ingredientCategory.Id))
+                .MustHaveHappenedOnceExactly();
+            A.CallTo(() => _memoryCache.Remove(CacheKeys.Ingredients.IngredientCategoriesList))
+                .MustHaveHappened(2, Times.Exactly);
+
+            ingredientCategories = _ingredientsService.ListIngredientCategories();
+            ingredientCategories.Should().NotBeNull();
+            ingredientCategories.Should().NotContain(c => c.Name == ingredientCategory.Name);
         }
     }
 }

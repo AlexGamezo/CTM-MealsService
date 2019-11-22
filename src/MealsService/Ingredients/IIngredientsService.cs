@@ -27,5 +27,9 @@ namespace MealsService.Ingredients
         bool DeleteIngredientCategory(int categoryId);
         bool SetIngredientCategory(int id, string category);
         IngredientCategory GetOrCreateCategoryByName(string category);
+
+        void NormalizeMeasuredIngredient(MeasuredIngredient ingredient);
+        MeasuredIngredient GroupMeasuredIngredients(List<MeasuredIngredient> ingredients);
+        void DenormalizeMeasuredIngredient(MeasuredIngredient measuredIngredient);
     }
 }

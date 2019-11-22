@@ -3,14 +3,16 @@ using System;
 using MealsService;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MealsService.Migrations
 {
     [DbContext(typeof(MealsDbContext))]
-    partial class MealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20191102031734_add IsMeasuredVolume field")]
+    partial class addIsMeasuredVolumefield
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -175,8 +177,6 @@ namespace MealsService.Migrations
 
                     b.Property<string>("Image")
                         .HasMaxLength(80);
-
-                    b.Property<double>("IndividualWeight");
 
                     b.Property<bool>("IsMeasuredVolume");
 

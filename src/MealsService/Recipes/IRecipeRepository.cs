@@ -12,7 +12,7 @@ namespace MealsService.Recipes
         bool DeleteRecipe(int recipeId);
         bool SaveRecipe(Recipe recipe);
         bool SetDietTypes(int recipeId, List<int> dietTypeIds);
-        bool SetRecipeIngredients(int recipeId, List<RecipeIngredientDto> ingredients);
+        bool SetRecipeIngredients(int recipeId, List<RecipeIngredient> ingredients);
         bool SetRecipeSteps(int recipeId, List<RecipeStep> steps);
 
     }

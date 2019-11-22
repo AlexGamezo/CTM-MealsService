@@ -25,7 +25,6 @@ namespace MealsService.ShoppingList
                 .Where(i => i.UserId == userId && i.WeekStart == weekStartUnspecified)
                 .Include(s => s.Ingredient)
                 .ThenInclude(i => i.IngredientCategory)
-                .Include(s => s.MeasureType)
                 .ToList();
             return items;
         }
@@ -38,7 +37,6 @@ namespace MealsService.ShoppingList
                 .Where(i => shopItemIds.Contains(i.Id))
                 .Include(s => s.Ingredient)
                 .ThenInclude(i => i.IngredientCategory)
-                .Include(s => s.MeasureType)
                 .ToList();
         }
 
@@ -55,7 +53,6 @@ namespace MealsService.ShoppingList
                 .Where(i => i.PreparationId != null && preparationIds.Contains(i.PreparationId.Value))
                 .Include(s => s.Ingredient)
                     .ThenInclude(i => i.IngredientCategory)
-                .Include(s => s.MeasureType)
                 .ToList();
             return prepShoppingItems;
         }
@@ -70,7 +67,6 @@ namespace MealsService.ShoppingList
                 .Where(i => i.UserId == userId && i.WeekStart == weekStartUnspecified && (includeManuals || !i.ManuallyAdded))
                 .Include(s => s.Ingredient)
                     .ThenInclude(i => i.IngredientCategory)
-                .Include(s => s.MeasureType)
                 .ToList();
         }
 
@@ -88,6 +84,7 @@ namespace MealsService.ShoppingList
             var dbContext = _serviceContainer.GetService<MealsDbContext>();
 
             dbContext.RemoveRange(dbContext.ShoppingListItems.Where(i => itemIds.Contains(i.Id)));
+            dbContext.SaveChanges();
         }
 
         internal bool SaveItem(ShoppingListItem item)

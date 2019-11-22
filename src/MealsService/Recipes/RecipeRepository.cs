@@ -4,7 +4,6 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 
 using MealsService.Recipes.Data;
-using MealsService.Recipes.Dtos;
 
 namespace MealsService.Recipes
 {
@@ -115,7 +114,7 @@ namespace MealsService.Recipes
             return !changes || _dbContext.SaveChanges() > 0;
         }
 
-        public bool SetRecipeIngredients(int recipeId, List<RecipeIngredientDto> ingredients)
+        public bool SetRecipeIngredients(int recipeId, List<RecipeIngredient> ingredients)
         {
             var changes = false;
             var recipe = _dbContext.Recipes.Find(recipeId);
@@ -129,19 +128,9 @@ namespace MealsService.Recipes
                         recipe.RecipeIngredients[i].IngredientId = ingredients[i].IngredientId;
                         changes = true;
                     }
-                    if (Math.Abs(recipe.RecipeIngredients[i].Amount - ingredients[i].Quantity) > 0.001)
+                    if (Math.Abs(recipe.RecipeIngredients[i].Amount - ingredients[i].Amount) > 0.001)
                     {
-                        recipe.RecipeIngredients[i].Amount = ingredients[i].Quantity;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].AmountType != ingredients[i].Measure)
-                    {
-                        recipe.RecipeIngredients[i].AmountType = ingredients[i].Measure;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].MeasureTypeId != ingredients[i].MeasureTypeId)
-                    {
-                        recipe.RecipeIngredients[i].MeasureTypeId = ingredients[i].MeasureTypeId;
+                        recipe.RecipeIngredients[i].Amount = ingredients[i].Amount;
                         changes = true;
                     }
                 }
@@ -155,9 +144,7 @@ namespace MealsService.Recipes
                     recipe.RecipeIngredients.Add(new RecipeIngredient
                     {
                         IngredientId = ingredients[i].IngredientId,
-                        Amount = ingredients[i].Quantity,
-                        AmountType = ingredients[i].Measure,
-                        MeasureTypeId = ingredients[i].MeasureTypeId
+                        Amount = ingredients[i].Amount
                     });
                 }
             }

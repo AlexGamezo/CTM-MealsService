@@ -13,7 +13,7 @@ using MealsService.Tags;
 using MealsService.Tags.Data;
 using System.Linq;
 
-namespace MealsService.Tests
+namespace MealsService.Tests.Ingredients
 {
     public class IngredientRepositoryTests
     {
@@ -46,27 +46,25 @@ namespace MealsService.Tests
             var context = new MealsDbContext(_options);
             context.Database.EnsureCreated();
 
-            var tags = new List<Tag> { new Tag { Id = 1, Name = "tag1" }, new Tag { Id = 2, Name = "tag2" } };
-
             var fakeTagService = A.Fake<ITagsService>();
 
             A.CallTo(() => fakeTagService.GetOrCreateTags(A<IEnumerable<string>>.Ignored))
                 .ReturnsLazily((IEnumerable<string> tagStrings) =>
                 {
                     var missingTags = tagStrings
-                        .Where(t => tags.All(tag => tag.Name != t))
-                        .Select(t => new Tag { Id = tags.Count + 1, Name = t })
+                        .Where(t => context.Tags.All(tag => tag.Name != t))
+                        .Select(t => new Tag { Name = t })
                         .ToList();
 
                     context.Tags.AddRange(missingTags);
                     context.SaveChanges();
 
-                    tags.AddRange(missingTags);
-                    return tags.Where(t => tagStrings.Contains(t.Name)).ToList();
+                    context.Tags.AddRange(missingTags);
+                    return context.Tags.Where(t => tagStrings.Contains(t.Name)).ToList();
                 });
 
             A.CallTo(() => fakeTagService.ListTags())
-                .ReturnsLazily(() => tags);
+                .ReturnsLazily(() => context.Tags.ToList());
 
             return fakeTagService;
         }
@@ -87,12 +85,7 @@ namespace MealsService.Tests
 
         private void PopulateFakeTags()
         {
-            var context = new MealsDbContext(_options);
-            context.Tags.AddRange(new List<Tag> {
-                new Tag { Id = 1, Name = "tag1" },
-                new Tag { Id = 2, Name = "tag2" }
-            });
-            context.SaveChanges();
+            GetTagsService().GetOrCreateTags(new List<string> {"tag1", "tag2", "tag3"});
         }
 
         [Test]
@@ -126,6 +119,23 @@ namespace MealsService.Tests
         }
 
         [Test]
+        public void EditIngredientCategoryTest()
+        {
+            PopulateFakeData();
+
+            var repo = GetIngredientsRepository();
+            var categories = repo.ListIngredientCategories();
+            categories.Count.Should().Be(2);
+
+            categories[0].Name = "Updated Category";
+            repo.SaveIngredientCategory(categories[0]);
+
+            repo = GetIngredientsRepository();
+            var updatedCategories = repo.ListIngredientCategories();
+            updatedCategories[0].Name.Should().Be("Updated Category");
+        }
+
+        [Test]
         public void AddIngredientNewTagTest()
         {
             PopulateFakeData();
@@ -133,7 +143,9 @@ namespace MealsService.Tests
             var repo = GetIngredientsRepository();
             var ingredients = repo.ListIngredients();
 
-            repo.SetTags(ingredients[0].Id, new List<string> { "new tag" });
+            var status = repo.SetTags(ingredients[0].Id, new List<string> { "new tag" });
+
+            status.Should().BeTrue();
 
             repo = GetIngredientsRepository();
             var updatedIngredients = repo.ListIngredients();
@@ -151,13 +163,64 @@ namespace MealsService.Tests
             var repo = GetIngredientsRepository();
             var ingredients = repo.ListIngredients();
 
-            repo.SetTags(ingredients[0].Id, new List<string> { "tag1" });
+            var status = repo.SetTags(ingredients[0].Id, new List<string> { "tag1" });
+
+            status.Should().BeTrue();
 
             repo = GetIngredientsRepository();
             var updatedIngredients = repo.ListIngredients();
 
             updatedIngredients[0].IngredientTags.Count.Should().Be(1);
             updatedIngredients[0].IngredientTags[0].Tag.Name.Should().Be("tag1");
+        }
+
+        [Test]
+        public void UpdateIngredientTagsTest()
+        {
+            PopulateFakeData();
+            PopulateFakeTags();
+
+            var repo = GetIngredientsRepository();
+            var ingredients = repo.ListIngredients();
+
+            repo.SetTags(ingredients[0].Id, new List<string> { "tag1" });
+
+            var updatedIngredients = repo.ListIngredients();
+
+            updatedIngredients[0].IngredientTags.Count.Should().Be(1);
+            updatedIngredients[0].IngredientTags[0].Id.Should().Be(1);
+            updatedIngredients[0].IngredientTags[0].Tag.Name.Should().Be("tag1");
+
+            var status = repo.SetTags(ingredients[0].Id, new List<string>{"tag2", "tag3"});
+            status.Should().BeTrue();
+
+            repo = GetIngredientsRepository();
+            var modifiedTagsIngredients = repo.ListIngredients();
+
+            var modifiedIng = modifiedTagsIngredients[0];
+
+            modifiedIng.Id.Should().Be(updatedIngredients[0].Id);
+            modifiedIng.Tags.Should().BeEquivalentTo(new List<string> {"tag2", "tag3"});
+            
+            modifiedIng.IngredientTags[0].Id.Should().Be(updatedIngredients[0].IngredientTags[0].Id);
+            modifiedIng.IngredientTags[1].Id.Should().Be(2);
+
+            status = repo.SetTags(ingredients[0].Id, new List<string> { "tag4" });
+            status.Should().BeTrue();
+
+            repo = GetIngredientsRepository();
+            modifiedTagsIngredients = repo.ListIngredients();
+
+            modifiedIng = modifiedTagsIngredients[0];
+
+            modifiedIng.Id.Should().Be(updatedIngredients[0].Id);
+            modifiedIng.Tags.Should().BeEquivalentTo(new List<string> { "tag4" });
+
+            modifiedIng.IngredientTags.Count.Should().Be(1);
+            modifiedIng.IngredientTags[0].Id.Should().Be(updatedIngredients[0].IngredientTags[0].Id);
+
+            var context = new MealsDbContext(_options);
+            context.IngredientTags.ToList().Count.Should().Be(1);
         }
 
         [Test]

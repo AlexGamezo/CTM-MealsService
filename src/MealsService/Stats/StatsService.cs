@@ -156,12 +156,12 @@ namespace MealsService.Stats
                 summary.CurrentStreak = progress.Streak;
                 summary.MealsPerWeek = progress.Goal;
 
-                if (summary.NumMeals <= 1)
+                if (summary.NumMeals > 1)
                 {
                     var updateRequest = new UpdateJourneyProgressRequest
                     {
                         JourneyStepId = JOURNEY_MEAL_COMPLETION_ID,
-                        Completed = summary.NumMeals == 1
+                        Completed = true
                     };
                     await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
                 }

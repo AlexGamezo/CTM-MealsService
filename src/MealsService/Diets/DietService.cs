@@ -6,7 +6,6 @@ using MealsService.Diets.Dtos;
 using MealsService.Diets.Data;
 using MealsService.Infrastructure;
 using MealsService.Recipes.Data;
-using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using SystemClock = NodaTime.SystemClock;
 
@@ -33,12 +32,12 @@ namespace MealsService.Diets
         };
 
         private DietsRepository _repository;
-        private IServiceProvider _serviceProvider;
+        private RequestContext _requestContext;
 
-        public DietService(DietTypeService dietTypeService, IServiceProvider serviceProvider)
+        public DietService(RequestContext requestContext, DietsRepository repository)
         {
-            _repository = new DietsRepository(serviceProvider, dietTypeService);
-            _serviceProvider = serviceProvider;
+            _repository = repository;
+            _requestContext = requestContext;
         }
 
         public bool UpdatePreferences(int userId, MenuPreferencesDto update)
@@ -144,7 +143,7 @@ namespace MealsService.Diets
             }
             else
             {
-                whenInstant = when.Value.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz)
+                whenInstant = when.Value.AtStartOfDayInZone(_requestContext.Dtz)
                     .ToInstant();
             }
 
@@ -180,7 +179,7 @@ namespace MealsService.Diets
                     var def = DefaultChangeDays[primaryGoal.Current];
 
                     var nowInstant = SystemClock.Instance.GetCurrentInstant()
-                        .InZone(_serviceProvider.GetService<RequestContext>().Dtz);
+                        .InZone(_requestContext.Dtz);
 
                     if (!def.Contains((int) nowInstant.DayOfWeek - 1))
                     {
@@ -246,7 +245,7 @@ namespace MealsService.Diets
                     {
                         DayOfWeek = addedDay,
                         MealType = mealType,
-                        NumServings = 2,
+                        //NumServings = 2,
                         Consumers = new List<PrepPlanConsumer>()
                     };
 
@@ -308,9 +307,7 @@ namespace MealsService.Diets
         {
             var newGenerators = FromDtos(days);
 
-            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
-
-            var plan = GetPrepPlan(userId, SystemClock.Instance.GetCurrentInstant().InZone(zone).Date);
+            var plan = GetPrepPlan(userId, SystemClock.Instance.GetCurrentInstant().InZone(_requestContext.Dtz).Date);
             var removedGenerators = new List<PrepPlanGenerator>();
             var removedConsumers = new List<PrepPlanConsumer>();
 
@@ -320,7 +317,7 @@ namespace MealsService.Diets
                 {
                     plan.Generators[i].DayOfWeek = newGenerators[i].DayOfWeek;
                     plan.Generators[i].MealType = newGenerators[i].MealType;
-                    plan.Generators[i].NumServings = newGenerators[i].NumServings;
+                    //plan.Generators[i].NumServings = newGenerators[i].NumServings;
                 }
                 else
                 {
@@ -328,7 +325,7 @@ namespace MealsService.Diets
                     {
                         DayOfWeek = newGenerators[i].DayOfWeek,
                         MealType = newGenerators[i].MealType,
-                        NumServings = newGenerators[i].NumServings,
+                        //NumServings = newGenerators[i].NumServings,
                         Consumers = new List<PrepPlanConsumer>()
                     });
                 }
@@ -386,7 +383,7 @@ namespace MealsService.Diets
                         {
                             DayOfWeek = day.DayOfWeek,
                             MealType = meal.MealType,
-                            NumServings = 0,
+                            //NumServings = 0,
                             Consumers = new List<PrepPlanConsumer>()
                         };
 
@@ -411,8 +408,8 @@ namespace MealsService.Diets
                         NumServings = meal.NumServings
                     };
                     generators[meal.PreppedDay][meal.PreppedMeal].Consumers.Add(consumer);
-                    generators[meal.PreppedDay][meal.PreppedMeal].NumServings =
-                        generators[meal.PreppedDay][meal.PreppedMeal].Consumers.Sum(c => c.NumServings);
+                    //generators[meal.PreppedDay][meal.PreppedMeal].NumServings =
+                    //    generators[meal.PreppedDay][meal.PreppedMeal].Consumers.Sum(c => c.NumServings);
                 }
             }
 
@@ -457,7 +454,7 @@ namespace MealsService.Diets
             {
                 DayOfWeek = generator.DayOfWeek,
                 MealType = generator.MealType,
-                NumServings = generator.NumServings,
+                NumServings = generator.Consumers.Sum(c => c.NumServings),
                 Consumers = generator.Consumers.Select(c => ToDto(c)).ToList()
             };
         }

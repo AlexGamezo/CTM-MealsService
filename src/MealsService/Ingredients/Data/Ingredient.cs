@@ -41,7 +41,9 @@ namespace MealsService.Ingredients.Data
             }
         }
 
-        public string MeasurementType { get; set; }
+        public bool IsMeasuredVolume { get; set; } = true;
+
+        public double IndividualWeight { get; set; }
 
         /// <summary>
         /// Relationships
@@ -51,7 +53,5 @@ namespace MealsService.Ingredients.Data
         public IngredientCategory IngredientCategory { get; set; }
         [IgnoreDataMember]
         public List<IngredientTag> IngredientTags { get; set; } = new List<IngredientTag>();
-        //[IgnoreDataMember]
-        //public List<IngredientMeasureType> IngredientMeasureTypes { get; set; } = new List<IngredientMeasureType>();
     }
 }

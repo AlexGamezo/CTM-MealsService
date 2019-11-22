@@ -16,7 +16,9 @@ namespace MealsService.Ingredients.Dtos
         public string Image { get; set; }
         public string Category { get; set; }
 
-        public string MeasurementType { get; set; }
+        public bool IsMeasuredVolume { get; set; }
+
+        public double IndividualWeight { get; set; }
 
         public List<string> Tags { get; set; }
     }
@@ -33,7 +35,8 @@ namespace MealsService.Ingredients.Dtos
                 Description = ingredient.Description,
                 Image = ingredient.Image,
                 Category = ingredient.Category,
-                MeasurementType = ingredient.MeasurementType,
+                IsMeasuredVolume = ingredient.IsMeasuredVolume,
+                IndividualWeight = ingredient.IndividualWeight,
                 Tags = ingredient.Tags
             };
         }
@@ -47,7 +50,8 @@ namespace MealsService.Ingredients.Dtos
                 Brief = ingredientDto.Brief,
                 Description = ingredientDto.Description,
                 Image = ingredientDto.Image,
-                MeasurementType = ingredientDto.MeasurementType,
+                IsMeasuredVolume = ingredientDto.IsMeasuredVolume,
+                IndividualWeight = ingredientDto.IndividualWeight
                 //Individual Sets
                 /*Category = ingredientDto.Category,
                 Tags = ingredientDto.Tags*/

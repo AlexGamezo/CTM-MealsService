@@ -19,16 +19,11 @@ namespace MealsService.Recipes.Data
         public int IngredientId { get; set; }
         public float Amount { get; set; }
 
-        [StringLength(32)]
-        public string AmountType { get; set; }
-        public int MeasureTypeId { get; set; }
-
         /// <summary>
         /// Relationships
         /// </summary>
         [IgnoreDataMember]
         public Recipe Recipe { get; set; }
         public Ingredient Ingredient { get; set; }
-        public MeasureType MeasureType { get; set; }
     }
 }

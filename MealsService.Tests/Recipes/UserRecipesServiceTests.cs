@@ -15,6 +15,7 @@ using MealsService.Recipes;
 using MealsService.Recipes.Data;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
+using MealsService.Users;
 
 namespace MealsService.Tests.Recipes
 {
@@ -42,8 +43,21 @@ namespace MealsService.Tests.Recipes
                 {
                     return generator.Invoke();
                 });
+            A.CallTo(() =>
+                    _fakeCache.GetValueOrCreateAsync(A<string>.Ignored, A<int>.Ignored,
+                        A<Func<Task<List<int>>>>.Ignored))
+                .ReturnsLazily((string key, int duration, Func<Task<List<int>>> generator) =>
+                {
+                    return generator.Invoke();
+                });
+            A.CallTo(() => _fakeCache.SetAsync(A<string>.Ignored, A<object>.Ignored, A<int>.Ignored))
+                .Returns(true);
 
-            _userRecipesService = new UserRecipesService(_ingredientsService, _recipesService, _userRecipeRepo, _fakeCache);
+            var fakeUsersService = A.Fake<UsersService>();
+            A.CallTo(() => fakeUsersService.UpdateJourneyProgressAsync(A<int>.Ignored, A<Users.Data.UpdateJourneyProgressRequest>.Ignored))
+                .Returns(Task.FromResult(true));
+
+            _userRecipesService = new UserRecipesService(_ingredientsService, _recipesService, _userRecipeRepo, _fakeCache, fakeUsersService);
         }
 
         private IRecipesService GetFakeRecipesService()
@@ -158,12 +172,12 @@ namespace MealsService.Tests.Recipes
         }
 
         [Test]
-        public void AddNewVoteTest()
+        public async Task AddNewVoteTestAsync()
         {
             var testUserId = 1;
             var testRecipeId = 1;
 
-            var status = _userRecipesService.AddRecipeVote(testUserId, testRecipeId, RecipeVote.VoteType.LIKE);
+            var status = await _userRecipesService.AddRecipeVoteAsync(testUserId, testRecipeId, RecipeVote.VoteType.LIKE);
             status.Should().BeTrue();
 
             A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))
@@ -189,7 +203,7 @@ namespace MealsService.Tests.Recipes
             recipeVote.Should().NotBeNull();
             recipeVote.Vote.Should().Be(RecipeVote.VoteType.LIKE);
 
-            var status = _userRecipesService.AddRecipeVote(testUserId, testRecipeId, RecipeVote.VoteType.HATE);
+            var status = await _userRecipesService.AddRecipeVoteAsync(testUserId, testRecipeId, RecipeVote.VoteType.HATE);
             status.Should().BeTrue();
 
             A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))

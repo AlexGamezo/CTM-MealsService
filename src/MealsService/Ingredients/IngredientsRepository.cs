@@ -101,14 +101,10 @@ namespace MealsService.Ingredients
                 else
                 {
                     changes = true;
-                    if (ingredient.IngredientTags == null)
-                    {
-                        ingredient.IngredientTags = new List<IngredientTag>();
-                    }
-                    ingredient.IngredientTags.Add(new IngredientTag { TagId = tags[i].Id });
+                    ingredient.IngredientTags?.Add(new IngredientTag { TagId = tags[i].Id });
                 }
             }
-            if (tags.Count < ingredient.IngredientTags.Count)
+            if (tags.Count < ingredient.IngredientTags?.Count)
             {
                 var countToRemove = ingredient.IngredientTags.Count - tags.Count;
                 var toDelete = ingredient.IngredientTags.GetRange(tags.Count, countToRemove);
@@ -135,9 +131,8 @@ namespace MealsService.Ingredients
         
         public bool DeleteIngredientCategoryById(int categoryId)
         {
-            //var category = ListIngredientCategories().FirstOrDefault(c => c.Id == categoryId);
-            var category = _dbContext.IngredientCategories.FirstOrDefault(c => c.Id == categoryId);
-
+            var category = ListIngredientCategories().FirstOrDefault(c => c.Id == categoryId);
+            
             if (category != null)
             {
                 _dbContext.IngredientCategories.Remove(category);

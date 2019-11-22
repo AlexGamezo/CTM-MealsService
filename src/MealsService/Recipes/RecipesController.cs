@@ -31,7 +31,7 @@ namespace MealsService.Recipes
             _awsOptions = options.Value;
         }
 
-        [HttpPost("list")]
+        [HttpGet]
         public async Task<IActionResult> ListAsync([FromQuery] RecipeListRequest request)
         {
             if (request.UserId > 0 && (AuthorizedUser != request.UserId || !IsAdmin))
@@ -122,9 +122,9 @@ namespace MealsService.Recipes
 
         [Authorize]
         [HttpPost("{id:int}/votes")]
-        public IActionResult Vote(int id, [FromBody] RecipeVoteDto request)
+        public async Task<IActionResult> VoteAsync(int id, [FromBody] RecipeVoteDto request)
         {
-            var success = _userRecipesService.AddRecipeVote(id, AuthorizedUser, request.Vote);
+            var success = await _userRecipesService.AddRecipeVoteAsync(id, AuthorizedUser, request.Vote);
             var response = new RecipeVoteResponse
             {
                 RecipeId = id, Vote = request.Vote

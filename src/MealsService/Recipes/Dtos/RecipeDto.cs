@@ -60,7 +60,6 @@ namespace MealsService.Recipes.Dtos
                 MealType = recipe.MealType,
                 Source = recipe.Source,
                 Ingredients = recipe.RecipeIngredients?.Select(i => i.ToDto())
-                    .OrderByDescending(i => !string.IsNullOrEmpty(i.Image))
                     .ToList(),
                 Steps = recipe.Steps
                     .OrderBy(s => s.Order)

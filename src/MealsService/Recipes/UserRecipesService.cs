@@ -10,6 +10,8 @@ using MealsService.Ingredients;
 using MealsService.Recipes.Data;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
+using MealsService.Users;
+using MealsService.Users.Data;
 
 namespace MealsService.Recipes
 {
@@ -22,17 +24,22 @@ namespace MealsService.Recipes
 
         private const int RECENT_RECIPES_COUNT = 50;
 
+        private UsersService _usersService;
+
         private IUserRecipeRepository _userRecipesRepo;
         private IMemcachedClient _memcache;
         private IRecipesService _recipeService;
         private IIngredientsService _ingredientsService;
 
-        public UserRecipesService(IIngredientsService ingredientsService, IRecipesService recipeService, IUserRecipeRepository userRecipesRepo, IMemcachedClient memcachedClient)
+        public UserRecipesService(IIngredientsService ingredientsService, IRecipesService recipeService, IUserRecipeRepository userRecipesRepo,
+            IMemcachedClient memcachedClient, UsersService usersService)
         {
             _ingredientsService = ingredientsService;
             _recipeService = recipeService;
             _userRecipesRepo = userRecipesRepo;
             _memcache = memcachedClient;
+
+            _usersService = usersService;
         }
 
         public async Task<List<RecipeVoteDto>> ListRecipeVotesAsync(int userId)
@@ -49,7 +56,7 @@ namespace MealsService.Recipes
             });
         }
 
-        public bool AddRecipeVote(int userId, int recipeId, RecipeVote.VoteType vote)
+        public async Task<bool> AddRecipeVoteAsync(int userId, int recipeId, RecipeVote.VoteType vote)
         {
             var existingVote = _userRecipesRepo.GetUserVotes(userId)
                 .FirstOrDefault(rv => rv.RecipeId == recipeId);
@@ -69,13 +76,20 @@ namespace MealsService.Recipes
                 throw RecipeErrors.RecipeVoteFailed;
             }
 
+            await CheckForJourneyProgressOnVotesAsync(userId);
+
             var response = new RecipeVoteResponse
             {
                 RecipeId = recipeId,
                 Vote = vote,
-            }; 
-            
-            /*var likes = (await ListRecipeVotesAsync(userId))
+            };
+
+            return success;
+        }
+
+        public async Task<bool> CheckForJourneyProgressOnVotesAsync(int userId)
+        {
+            var likes = (await ListRecipeVotesAsync(userId))
                 .Count(v => v.Vote == RecipeVote.VoteType.LIKE);
 
             if (likes <= 1)
@@ -85,12 +99,10 @@ namespace MealsService.Recipes
                     JourneyStepId = JOURNEY_FAVORITES_ID,
                     Completed = likes == 1
                 };
-                await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
+                return await _usersService.UpdateJourneyProgressAsync(userId, updateRequest);
+            }
 
-                response.JourneyUpdated = true;
-            }*/
-
-            return success;
+            return false;
         }
 
         public async Task<bool> PopulateRecipeVotesAsync(List<RecipeDto> recipes, int userId)
@@ -146,16 +158,16 @@ namespace MealsService.Recipes
             }
 
             var recentPulls = await GetRecentRecipeIds(userId);
-            var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.IngredientId).ToList() : new List<int>();
+            var consumeIngredientIds = request.ConsumeIngredients != null ? request.ConsumeIngredients.Select(ri => ri.MeasuredIngredient.IngredientId).ToList() : new List<int>();
 
             var sortedRecipes = (_recipeService.SearchRecipes(new RecipeSearchRequest { MealType = MealType.Dinner }))
                 //TODO: Fix
                 .Where(m => (request.DietTypeId == 0 || m.DietTypes.Contains(request.DietTypeId)))
                 //Exclude any recipes that have ingredients that were requested to be excluded
-                .Where(m => m.Ingredients.All(mi => !excludedIngredientIds.Contains(mi.IngredientId)))
+                .Where(m => m.Ingredients.All(mi => !excludedIngredientIds.Contains(mi.MeasuredIngredient.IngredientId)))
                 .Where(r => !request.ExcludeRecipes.Contains(r.Id) && !recentPulls.Contains(r.Id))
                 //Sort recipes that have the requested ingredients to the top
-                .OrderByDescending(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.IngredientId)))
+                .OrderByDescending(m => m.Ingredients.Count(mi => consumeIngredientIds.Contains(mi.MeasuredIngredient.IngredientId)))
                 .ThenByDescending(r => r.Priority);
             //Preference the recipes that haven't been used yet
             //.ThenBy(m => recipeWeights != null && recipeWeights.ContainsKey(m.Id) ? recipeWeights[m.Id] : 0);

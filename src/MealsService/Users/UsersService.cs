@@ -10,7 +10,6 @@ using Newtonsoft.Json;
 using MealsService.Configurations;
 using MealsService.Infrastructure;
 using MealsService.Users.Data;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MealsService.Users
 {
@@ -18,13 +17,13 @@ namespace MealsService.Users
     {
         private IOptions<ServicesConfiguration> _servicesConfig;
         private IOptions<CredentialsConfiguration> _credsConfig;
-        private IServiceProvider _serviceProvider;
+        private RequestContext _context;
 
-        public UsersService(IOptions<ServicesConfiguration> servicesConfig, IOptions<CredentialsConfiguration> credsConfig, IServiceProvider serviceProvider)
+        public UsersService(IOptions<ServicesConfiguration> servicesConfig, IOptions<CredentialsConfiguration> credsConfig, RequestContext context)
         {
             _servicesConfig = servicesConfig;
             _credsConfig = credsConfig;
-            _serviceProvider = serviceProvider;
+            _context = context;
         }
 
         public async Task<UserDto> GetUserAsync(int userId)
@@ -57,16 +56,14 @@ namespace MealsService.Users
             return null;
         }
 
-        public async Task<bool> UpdateJourneyProgressAsync(int userId, UpdateJourneyProgressRequest updateRequest)
+        public virtual async Task<bool> UpdateJourneyProgressAsync(int userId, UpdateJourneyProgressRequest updateRequest)
         {
-            var context = _serviceProvider.GetService<RequestContext>();
-            
             //Create request
             var request = (HttpWebRequest)WebRequest.Create(_servicesConfig.Value.Auth + $"profile/{userId}/journeyProgress");
             request.Method = "POST";
             request.ContentType = "application/json";
             request.PreAuthenticate = true;
-            request.Headers.Add("Authorization", "Bearer " + context.Token);
+            request.Headers.Add("Authorization", "Bearer " + _context.Token);
 
             //Get the response
             try

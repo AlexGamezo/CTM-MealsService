@@ -1,51 +1,50 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+
 using NodaTime;
-using NodaTime.Extensions;
 
 using MealsService.Common.Extensions;
 using MealsService.Recipes;
 using MealsService.Schedules.Dtos;
-using MealsService.Services;
 using MealsService.ShoppingList.Data;
 using MealsService.ShoppingList.Dtos;
 using MealsService.Users;
-using MealsService.Users.Data;
 using MealsService.Ingredients;
+using MealsService.Ingredients.Data;
+using MealsService.Users.Data;
 
 namespace MealsService.ShoppingList
 {
-    public class ShoppingListService
+    public class ShoppingListService : IShoppingListService
     {
-        //private MealsDbContext _dbContext;
-
         private const int JOURNEY_SHOPPING_ID = 2;
 
-        private ScheduleService _scheduleService;
-        private RecipesService _recipesService;
+        private IRecipesService _recipesService;
         private SubscriptionsService _subService;
-        private MeasureTypesService _measureTypesService;
 
+        private IIngredientsService _ingredientsService;
+        
         private ShoppingListRepository _repository;
-        private IServiceProvider _serviceProvider;
+        private UsersService _usersService;
 
-        public ShoppingListService(ScheduleService scheduleService, RecipesService recipesService,
-            SubscriptionsService subService, ShoppingListRepository repository, MeasureTypesService measureTypesService,
-            IServiceProvider serviceProvider)
+        public ShoppingListService(IRecipesService recipesService,
+            IIngredientsService ingredientsService,
+            SubscriptionsService subService,
+            ShoppingListRepository repository,
+            UsersService usersService)
         {
-            _scheduleService = scheduleService;
             _recipesService = recipesService;
-            _serviceProvider = serviceProvider;
+            _ingredientsService = ingredientsService;
+
             _subService = subService;
-            _measureTypesService = measureTypesService;
 
             _repository = repository;
+
+            _usersService = usersService;
         }
 
-        public async Task<List<ShoppingListItem>> GetShoppingListAsync(int userId, LocalDate weekStart, bool regenIfEmpty = true)
+        public async Task<List<ShoppingListItem>> GetShoppingListAsync(int userId, LocalDate weekStart)
         {
             await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
 
@@ -53,73 +52,112 @@ namespace MealsService.ShoppingList
 
             var items = _repository.FetchShoppingListItems(userId, weekStartUnspecified);
 
-            if (items.All(i => i.ManuallyAdded) && regenIfEmpty)
-            {
-                await GenerateShoppingListAsync(userId, weekStart);
-
-                return await GetShoppingListAsync(userId, weekStart, false);
-            }
-
             return items;
         }
 
-        public async Task<List<ShoppingListItem>> GetShoppingListForPreparationAsync(int userId, int preparationId, bool regenIfEmpty = true)
+        public async Task<List<ShoppingListItemDto>> GetGroupedShoppingListAsync(int userId, LocalDate weekStart)
         {
-            var prep = _scheduleService.GetPreparation(userId, preparationId);
+            var ungroupedList = await GetShoppingListAsync(userId, weekStart);
+            var ungroupedDtos = ungroupedList.Select(i => ToDto(i)).ToList();
 
-            var prepShoppingItems = _repository.FetchShoppingListItemsForPreparation(preparationId);
+            var unusedDtos = ungroupedDtos.Where(dto => dto.Unused).ToList();
+            var checkedDtos = ungroupedDtos.Where(dto => !dto.Unused && dto.Checked).ToList();
+            var manuallyAdded = ungroupedDtos.Where(dto => !dto.Unused && dto.ManuallyAdded).ToList();
+            var uncheckedDtos = ungroupedDtos.Where(dto => !dto.Unused && !dto.Checked && !dto.ManuallyAdded).ToList();
 
-            if (!prepShoppingItems.Any() && regenIfEmpty)
+            var groupedDtos = new List<ShoppingListItemDto>();
+
+            groupedDtos.AddRange(GroupShoppingListItems(checkedDtos));
+            groupedDtos.AddRange(GroupShoppingListItems(uncheckedDtos));
+            groupedDtos.AddRange(GroupShoppingListItems(manuallyAdded));
+            groupedDtos.AddRange(GroupShoppingListItems(unusedDtos));
+
+            return groupedDtos;
+        }
+
+        private List<ShoppingListItemDto> GroupShoppingListItems(List<ShoppingListItemDto> dtos)
+        {
+            var groupedDtos = new List<ShoppingListItemDto>();
+            foreach (var dtoGroup in dtos.GroupBy(dto => dto.MeasuredIngredient.IngredientId))
+            {
+                var ingredientGroup = dtoGroup.Select(dto => dto.MeasuredIngredient).ToList();
+                var groupMeasuredIngredient = _ingredientsService.GroupMeasuredIngredients(ingredientGroup);
+                groupedDtos.Add(new ShoppingListItemDto
+                {
+                    Ids = dtoGroup.SelectMany(dto => dto.Ids).ToList(),
+                    Checked = dtoGroup.First().Checked,
+                    ManuallyAdded = dtoGroup.First().ManuallyAdded,
+                    MeasuredIngredient = groupMeasuredIngredient,
+                    PreparationIds = dtoGroup.SelectMany(dto => dto.PreparationIds).ToList(),
+                    Unused = dtoGroup.First().Unused
+                });
+            }
+
+            return groupedDtos;
+        }
+
+        public async Task<List<ShoppingListItemDto>> GetShoppingListForPreparationAsync(
+            int userId, int prepId)
+        {
+            var prepShoppingItems = _repository.FetchShoppingListItemsForPreparation(prepId);
+
+            /*if (!prepShoppingItems.Any() && regenIfEmpty)
             {
                 await GetShoppingListAsync(userId, prep.Date.GetWeekStart().ToLocalDateTime().Date);
 
-                prepShoppingItems = _repository.FetchShoppingListItemsForPreparation(preparationId);
-            }
-    
-            return prepShoppingItems;
+                prepShoppingItems = _repository.FetchShoppingListItemsForPreparation(prep.Id);
+            }*/
+
+            var ungroupedDtos = prepShoppingItems.Select(i => ToDto(i)).ToList();
+
+            var checkedDtos = ungroupedDtos.Where(dto => dto.Checked).ToList();
+            var manuallyAdded = ungroupedDtos.Where(dto => dto.ManuallyAdded).ToList();
+            var uncheckedDtos = ungroupedDtos.Where(dto => !dto.Checked && !dto.ManuallyAdded).ToList();
+
+            var groupedDtos = new List<ShoppingListItemDto>();
+
+            groupedDtos.AddRange(GroupShoppingListItems(checkedDtos));
+            groupedDtos.AddRange(GroupShoppingListItems(uncheckedDtos));
+            groupedDtos.AddRange(GroupShoppingListItems(manuallyAdded));
+
+            return groupedDtos;
         }
 
 
-        public void ClearShoppingList(int userId, LocalDate weekStart, bool includeManuals = false)
+        public void ClearShoppingList(int userId, LocalDate weekStart)
         {
-            _repository.RemoveShoppingListItemsForDate(userId, weekStart, includeManuals);
+            _repository.RemoveShoppingListItemsForDate(userId, weekStart, false);
 
             //TODO: Clear Cache
         }
 
-        public async Task GenerateShoppingListAsync(int userId, LocalDate weekStart)
+
+        public void ClearManuallyAddedItems(int userId, LocalDate weekStart)
         {
-            await _subService.VerifyDateInSubscriptionAsync(userId, weekStart);
+            _repository.RemoveShoppingListItemsForDate(userId, weekStart, true);
 
-            var schedule = await _scheduleService.GetScheduleAsync(userId, weekStart, weekStart.PlusDays(6));
-
-            ClearShoppingList(userId, weekStart);
-
-            var scheduledDays = schedule.Where(d => d.Meals != null && d.Meals.Any(s => s.RecipeId > 0)).ToList();
-            if (scheduledDays.Any())
-            {
-                var preparations = scheduledDays.SelectMany(d => d.Meals.Select(m => m.Preparation))
-                    .Distinct()
-                    .ToList();
-                HandlePreparationsAdded(userId, preparations, weekStart);
-            }
+            //TODO: Clear Cache
         }
 
         public void HandlePreparationRemoved(int userId, PreparationDto preparation)
         {
-            var shoppingList = GetShoppingListForPreparationAsync(userId, preparation.Id).Result;
+            var shoppingList = _repository.FetchShoppingListItemsForPreparation(preparation.Id);
+            if (!shoppingList.Any())
+            {
+                return;
+            }
 
             foreach(var item in shoppingList)
             {
                 if(item.Checked)
                 {
-                    if(UpdateUnusedItem(userId, item.IngredientId, item.MeasureTypeId, LocalDate.FromDateTime(preparation.Date), item.Amount))
+                    if(UpdateUnusedItem(userId, item.IngredientId, LocalDate.FromDateTime(preparation.Date), item.Amount))
                     {
                         _repository.RemoveShoppingListItemsById(new List<int> { item.Id });
                     }
                     else
                     {
-                        item.PreparationId = 0;
+                        item.PreparationId = null;
                         _repository.SaveItem(item);
                     }
                 }
@@ -138,11 +176,10 @@ namespace MealsService.ShoppingList
             }
         }
 
-        private bool UpdateUnusedItem(int userId, int ingId, int measureId, LocalDate weekStart, float amount)
+        private bool UpdateUnusedItem(int userId, int ingId, LocalDate weekStart, double amount)
         {
-            var weekStartUnspecified = weekStart.ToDateTimeUnspecified();
             var unused = _repository.GetShoppingListItems(userId, weekStart, false)
-                .FirstOrDefault(i => i.PreparationId == 0 && i.IngredientId == ingId);
+                .FirstOrDefault(i => i.PreparationId == null && i.IngredientId == ingId);
             
             if (unused != null)
             {
@@ -165,11 +202,11 @@ namespace MealsService.ShoppingList
             {
                 var amount = preparation.NumServings * ingredient.Amount;
 
-                var remainingAmount = ConsumeUnusedItems(userId, ingredient.IngredientId, weekStart, ingredient.MeasureTypeId, amount, preparation.Id);
+                var remainingAmount = ConsumeUnusedItems(userId, ingredient.IngredientId, weekStart, amount, preparation.Id);
 
                 if(remainingAmount > 0)
                 {
-                    var item = GenerateShoppingListItem(userId, ingredient.IngredientId, weekStart, ingredient.MeasureTypeId, remainingAmount);
+                    var item = GenerateShoppingListItem(userId, ingredient.IngredientId, weekStart, remainingAmount);
                     item.PreparationId = preparation.Id;
 
                     _repository.SaveItem(item);
@@ -179,19 +216,18 @@ namespace MealsService.ShoppingList
             //TODO: Clear cache
         }
 
-        private ShoppingListItem GenerateShoppingListItem(int userId, int ingredientId, LocalDate weekStart, int measureTypeId, float amount)
+        private ShoppingListItem GenerateShoppingListItem(int userId, int ingredientId, LocalDate weekStart, double amount)
         {
             return new ShoppingListItem
             {
                 UserId = userId,
                 IngredientId = ingredientId,
                 Amount = amount,
-                MeasureTypeId = measureTypeId,
                 NodaWeekStart = weekStart
             };
         }
 
-        private float ConsumeUnusedItems(int userId, int ingredientId, LocalDate weekStart, int measureTypeId, float amount, int preparationId)
+        private double ConsumeUnusedItems(int userId, int ingredientId, LocalDate weekStart, double amount, int preparationId)
         {
             var unusedItems = GetUnusedItemsForIngredient(userId, weekStart, ingredientId);
 
@@ -210,9 +246,34 @@ namespace MealsService.ShoppingList
             return remainingAmount;
         }
 
-        private float ConsumeUnusedItem(ShoppingListItem item, float remainingAmount, int preparationId)
+        private double ConsumeUnusedItem(ShoppingListItem item, double remainingAmount, int preparationId)
         {
-            throw new NotImplementedException();
+            if (remainingAmount >= item.Amount)
+            {
+                remainingAmount -= item.Amount;
+
+                item.PreparationId = preparationId;
+                _repository.SaveItem(item);
+                
+                return remainingAmount;
+            }
+            else
+            {
+                var partOfUnused = new ShoppingListItem
+                {
+                    UserId = item.UserId,
+                    Amount = remainingAmount,
+                    IngredientId = item.IngredientId,
+                    Checked = true,
+                    ManuallyAdded = item.ManuallyAdded,
+                    WeekStart = item.WeekStart,
+                    PreparationId = preparationId,
+                };
+                item.Amount -= remainingAmount;
+                _repository.SaveItems(new List<ShoppingListItem> {partOfUnused, item});
+
+                return 0;
+            }
         }
 
         private List<ShoppingListItem> GetUnusedItemsForIngredient(int userId, LocalDate weekStart, int ingredientId)
@@ -222,7 +283,7 @@ namespace MealsService.ShoppingList
 
         private List<ShoppingListItem> GetUnusedItems(int userId, LocalDate weekStart)
         {
-            return _repository.GetShoppingListItems(userId, weekStart, false).Where(i => i.PreparationId == 0).ToList();
+            return _repository.GetShoppingListItems(userId, weekStart, false).Where(i => i.PreparationId == null).ToList();
         }
 
         public void HandlePreparationsAdded(int userId, List<PreparationDto> preparations, LocalDate weekStart)
@@ -251,7 +312,7 @@ namespace MealsService.ShoppingList
 
         public async Task<bool> UpdateItemAsync(int userId, ShoppingListItemDto request)
         {
-            var item = _repository.FetchShoppingListItemsById(new List<int> { request.Id }).FirstOrDefault();
+            var item = _repository.FetchShoppingListItemsById(request.Ids).FirstOrDefault();
             
             if (item.UserId != userId)
             {
@@ -274,7 +335,12 @@ namespace MealsService.ShoppingList
             var success = !changes || _repository.SaveItem(item);
 
             if (changes && success)
-            { 
+            {
+                if (item.PreparationId == null && !item.Checked)
+                {
+                    _repository.RemoveShoppingListItemsById(new List<int> { item.Id });
+                }
+
                 var uncheckedItems = _repository.FetchShoppingListItems(userId, item.WeekStart).Count(i => i.Checked == false);
 
                 if (uncheckedItems == 0)
@@ -284,7 +350,7 @@ namespace MealsService.ShoppingList
                         JourneyStepId = JOURNEY_SHOPPING_ID,
                         Completed = true
                     };
-                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
+                    await _usersService.UpdateJourneyProgressAsync(userId, updateRequest);
                 }
             }
 
@@ -293,7 +359,7 @@ namespace MealsService.ShoppingList
 
         public async Task<bool> UpdateItemsAsync(int userId, List<ShoppingListItemDto> updatedItems)
         {
-            var items = _repository.FetchShoppingListItemsById(updatedItems.Select(i => i.Id).ToList());
+            var items = _repository.FetchShoppingListItemsById(updatedItems.SelectMany(i => i.Ids).ToList());
 
             if (items.Any(i => i.UserId != userId))
             {
@@ -304,7 +370,7 @@ namespace MealsService.ShoppingList
 
             foreach (var item in items)
             {
-                var updatedItem = updatedItems.First(i => i.Id == item.Id);
+                var updatedItem = updatedItems.First(i => i.Ids.Contains(item.Id));
                 if (item.Checked != updatedItem.Checked)
                 {
                     item.Checked = updatedItem.Checked;
@@ -321,6 +387,8 @@ namespace MealsService.ShoppingList
 
             if (changes && success)
             {
+                _repository.RemoveShoppingListItemsById(items.Where(item => item.PreparationId == null && !item.Checked).Select(i => i.Id).ToList());
+
                 var weekStart = items.Select(i => i.WeekStart).First();
                 var uncheckedItems = _repository.FetchShoppingListItems(userId, weekStart).Count(i => i.Checked == false);
 
@@ -331,7 +399,7 @@ namespace MealsService.ShoppingList
                         JourneyStepId = JOURNEY_SHOPPING_ID,
                         Completed = true
                     };
-                    await _serviceProvider.GetService<UsersService>().UpdateJourneyProgressAsync(userId, updateRequest);
+                    await _usersService.UpdateJourneyProgressAsync(userId, updateRequest);
                 }
             }
 
@@ -354,22 +422,21 @@ namespace MealsService.ShoppingList
 
         public ShoppingListItemDto ToDto(ShoppingListItem item)
         {
+            var measuredIngredient = new MeasuredIngredient
+            {
+                IngredientId = item.IngredientId,
+                Quantity = item.Amount
+            };
+            _ingredientsService.NormalizeMeasuredIngredient(measuredIngredient);
+
             return new ShoppingListItemDto
             {
-                Id = item.Id,
+                Ids = new List<int> {item.Id},
                 Checked = item.Checked,
-                Unused = item.PreparationId == 0,
+                Unused = item.PreparationId == null,
                 ManuallyAdded = item.ManuallyAdded,
-                IngredientId = item.IngredientId,
-                MeasureTypeId = item.MeasureTypeId,
-
-                Name = item.IngredientId > 0 && item.Ingredient != null ? item.Ingredient.Name : item.IngredientName,
-                Quantity = item.Amount,
-
-                Category = item.Ingredient.Category,
-                Image = item.Ingredient.Image,
-                Measure = item.MeasureType?.Name ?? "",
-                PreparationId = item.PreparationId ?? 0
+                MeasuredIngredient = measuredIngredient,
+                PreparationIds = item.PreparationId.HasValue ? new List<int>{item.PreparationId.Value} : new List<int>()
             };
         }
 
@@ -377,15 +444,13 @@ namespace MealsService.ShoppingList
         {
             return new ShoppingListItem
             {
-                Id = dto.Id,
+                Id = dto.Ids.First(),
                 Checked = dto.Checked,
                 ManuallyAdded = dto.ManuallyAdded,
-                IngredientId = dto.IngredientId,
-                MeasureTypeId = dto.MeasureTypeId,
-                IngredientName = dto.Name,
-                Amount = dto.Quantity,
+                IngredientId = dto.MeasuredIngredient.IngredientId,
+                Amount = dto.MeasuredIngredient.Quantity,
 
-                PreparationId = dto.PreparationId > 0 ? dto.PreparationId : (int?)null
+                PreparationId = dto.PreparationIds.Any() ? dto.PreparationIds.First() : (int?)null
             };
         }
     }

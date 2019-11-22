@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Microsoft.Extensions.Caching.Memory;
+using UnitsNet;
+using UnitsNet.Units;
 
 using MealsService.Common;
 using MealsService.Common.Errors;
+using MealsService.Common.Extensions;
 using MealsService.Ingredients.Data;
 using MealsService.Ingredients.Dtos;
 
@@ -132,13 +135,177 @@ namespace MealsService.Ingredients
                 {
                     Name = category.ToLowerInvariant()
                 };
-                if (_repository.SaveIngredientCategory(existingCategory))
-                {
-                    ClearCacheCategories();
-                }
+                existingCategory = SaveIngredientCategory(existingCategory);
             }
 
             return existingCategory;
+        }
+
+        public void NormalizeMeasuredIngredient(MeasuredIngredient measuredIngredient)
+        {
+            var ingredient = GetIngredient(measuredIngredient.IngredientId);
+
+            if (ingredient.IsMeasuredVolume)
+            {
+                NormalizeVolumeIngredient(measuredIngredient, ingredient);
+            }
+            else
+            {
+                NormalizeMassIngredient(measuredIngredient, ingredient);
+
+            }
+        }
+
+        public void DenormalizeMeasuredIngredient(MeasuredIngredient measuredIngredient)
+        {
+            var ingredient = GetIngredient(measuredIngredient.IngredientId);
+
+            if (ingredient.IsMeasuredVolume)
+            {
+                DenormalizeVolumeIngredient(measuredIngredient);
+            }
+            else
+            {
+                DenormalizeMassIngredient(measuredIngredient, ingredient);
+
+            }
+        }
+
+        public MeasuredIngredient GroupMeasuredIngredients(List<MeasuredIngredient> ingredients)
+        {
+            if (!ingredients.Any())
+            {
+                return null;
+            }
+
+            var ingredient = GetIngredient(ingredients[0].IngredientId);
+            var groupIngredient = new MeasuredIngredient
+            {
+                IngredientId = ingredient.Id,
+            };
+
+            foreach(var individual in ingredients)
+            {
+                DenormalizeMeasuredIngredient(individual);
+                groupIngredient.Quantity += individual.Quantity;
+            }
+
+            NormalizeMeasuredIngredient(groupIngredient);
+
+            return groupIngredient;
+        }
+
+        private void NormalizeMassIngredient(MeasuredIngredient measuredIngredient, IngredientDto ingredient)
+        {
+            if (!string.IsNullOrEmpty(measuredIngredient.Measure))
+            {
+                DenormalizeMassIngredient(measuredIngredient, ingredient);
+            }
+
+            var mass = Mass.FromOunces(measuredIngredient.Quantity);
+            var individualQuantity = 0.0;
+
+            if (ingredient.IndividualWeight > 0)
+            {
+                individualQuantity = (measuredIngredient.Quantity / ingredient.IndividualWeight).RoundToQuarter();
+            }
+
+            if (individualQuantity > 0 && individualQuantity <= 5)
+            {
+                measuredIngredient.Quantity = individualQuantity;
+                measuredIngredient.Measure = "whole";
+            }
+            else if (mass.Pounds >= 1)
+            {
+                measuredIngredient.Quantity = mass.Pounds.RoundToQuarter();
+                measuredIngredient.Measure = "lbs";
+
+            }
+            else
+            {
+                measuredIngredient.Quantity = mass.Ounces;
+                measuredIngredient.Measure = "oz";
+            }
+        }
+
+        private void NormalizeVolumeIngredient(MeasuredIngredient measuredIngredient, IngredientDto ingredient)
+        {
+            if (!string.IsNullOrEmpty(measuredIngredient.Measure))
+            {
+                DenormalizeVolumeIngredient(measuredIngredient);
+            }
+
+            var volume = Volume.FromUsOunces(measuredIngredient.Quantity);
+
+            if (volume.UsTablespoons < 1)
+            {
+                measuredIngredient.Quantity = volume.UsTeaspoons.RoundToQuarter();
+                measuredIngredient.Measure = "tsp";
+
+            }
+            else if (volume.UsCustomaryCups >= 0.3333)
+            {
+                var deltaQuarter = Math.Abs(volume.UsCustomaryCups - volume.UsCustomaryCups.RoundToQuarter());
+                var deltaThird = Math.Abs(volume.UsCustomaryCups - volume.UsCustomaryCups.RoundToThird());
+
+                measuredIngredient.Quantity = deltaQuarter < deltaThird ?
+                    volume.UsCustomaryCups.RoundToQuarter() :
+                    volume.UsCustomaryCups.RoundToThird();
+                measuredIngredient.Measure = "cups";
+            }
+            else if (volume.UsOunces < 2)
+            {
+                measuredIngredient.Quantity = volume.UsTablespoons.RoundToQuarter();
+                measuredIngredient.Measure = "tbsp";
+            }
+            else
+            {
+                measuredIngredient.Quantity = volume.UsOunces;
+                measuredIngredient.Measure = "oz";
+            }
+        }
+
+        private void DenormalizeMassIngredient(MeasuredIngredient measuredIngredient, IngredientDto ingredient)
+        {
+            var unit = MassUnit.Ounce;
+            if (!string.IsNullOrEmpty(measuredIngredient.Measure))
+            {
+                if (measuredIngredient.Measure == "whole" && ingredient.IndividualWeight > 0)
+                {
+                    unit = MassUnit.Ounce;
+                    measuredIngredient.Quantity *= ingredient.IndividualWeight;
+                }
+                else if (measuredIngredient.Measure == "lbs")
+                    unit = MassUnit.Pound;
+                else if (measuredIngredient.Measure == "oz")
+                    unit = MassUnit.Ounce;
+                else
+                    unit = Mass.ParseUnit(measuredIngredient.Measure);
+            }
+
+            measuredIngredient.Quantity = Mass.From(measuredIngredient.Quantity, unit).As(MassUnit.Ounce);
+            measuredIngredient.Measure = null;
+        }
+
+        private void DenormalizeVolumeIngredient(MeasuredIngredient measuredIngredient)
+        {
+            var unit = VolumeUnit.UsOunce;
+            if (!string.IsNullOrEmpty(measuredIngredient.Measure))
+            {
+                if (measuredIngredient.Measure == "tsp")
+                    unit = VolumeUnit.UsTeaspoon;
+                else if (measuredIngredient.Measure == "tbsp")
+                    unit = VolumeUnit.UsTablespoon;
+                else if (measuredIngredient.Measure == "cups")
+                    unit = VolumeUnit.UsCustomaryCup;
+                else if (measuredIngredient.Measure == "oz")
+                    unit = VolumeUnit.UsOunce;
+                else
+                    unit = Volume.ParseUnit(measuredIngredient.Measure);
+            }
+
+            measuredIngredient.Quantity = Volume.From(measuredIngredient.Quantity, unit).As(VolumeUnit.UsOunce);
+            measuredIngredient.Measure = null;
         }
 
         public IngredientCategory GetCategoryByName(string category)

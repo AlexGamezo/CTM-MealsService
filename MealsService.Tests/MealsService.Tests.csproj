@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Schedules\" />
+    <Folder Include="ShoppingList\" />
   </ItemGroup>
 
 </Project>
