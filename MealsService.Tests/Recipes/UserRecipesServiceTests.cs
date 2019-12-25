@@ -181,9 +181,11 @@ namespace MealsService.Tests.Recipes
             status.Should().BeTrue();
 
             A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))
-                .MustHaveHappened(1, Times.Exactly).Then(
+                .MustHaveHappened(1, Times.OrMore).Then(
             A.CallTo(() => _userRecipeRepo.SaveVote(A<RecipeVote>.Ignored))
-                .MustHaveHappened(1, Times.Exactly));
+                .MustHaveHappened(1, Times.Exactly))
+                .Then(A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))
+                    .MustHaveHappened(1, Times.OrMore));
 
             A.CallTo(() => _fakeCache.Remove(CacheKeys.Recipes.UserVotes(testUserId)))
                 .MustHaveHappened(1, Times.Exactly);
@@ -206,11 +208,15 @@ namespace MealsService.Tests.Recipes
             var status = await _userRecipesService.AddRecipeVoteAsync(testUserId, testRecipeId, RecipeVote.VoteType.HATE);
             status.Should().BeTrue();
 
-            A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))
-                .MustHaveHappened(2, Times.Exactly).Then(
             A.CallTo(() => _userRecipeRepo.SaveVote(A<RecipeVote>.Ignored))
+                .MustHaveHappened(5, Times.OrMore)
+            .Then(A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))
+                .MustHaveHappened(1, Times.OrMore))
+            .Then(A.CallTo(() => _userRecipeRepo.SaveVote(A<RecipeVote>.Ignored))
                 .WhenArgumentsMatch((RecipeVote vote) => vote.Id != 0 && vote.RecipeId == testRecipeId && vote.UserId == testUserId)
-                .MustHaveHappenedOnceExactly());
+                .MustHaveHappened(1, Times.Exactly))
+            .Then(A.CallTo(() => _userRecipeRepo.GetUserVotes(testUserId))
+                    .MustHaveHappened(1, Times.OrMore));
 
             A.CallTo(() => _fakeCache.Remove(CacheKeys.Recipes.UserVotes(testUserId)))
                 .MustHaveHappened(1, Times.Exactly);

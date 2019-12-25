@@ -57,7 +57,7 @@ namespace MealsService.Notifications
             do
             {
                 users = await _usersService.GetActiveUsers(count, offset);
-
+                
                 //TODO: Batch-get for Profile + Preferences, or filter as part of Profile GET request
                 for (var i = 0; i < users.Count; i++)
                 {

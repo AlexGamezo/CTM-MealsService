@@ -6,7 +6,6 @@ namespace MealsService.Recipes.Dtos
     public class RecipeIngredientDto
     {
         public int Id { get; set; }
-        public string Name { get; set; }
 
         public MeasuredIngredient MeasuredIngredient { get; set; }
     }
@@ -23,7 +22,6 @@ namespace MealsService.Recipes.Dtos
             return new RecipeIngredientDto
             {
                 Id = recipeIngredient.Id,
-                Name = recipeIngredient.Ingredient.Name,
                 MeasuredIngredient = new MeasuredIngredient
                 {
                     IngredientId = recipeIngredient.IngredientId, Quantity = recipeIngredient.Amount

@@ -92,12 +92,6 @@ namespace MealsService.Recipes.Dtos
                 NumServings = recipeDto.NumServings,
                 MealType = recipeDto.MealType,
                 Source = recipeDto.Source,
-                RecipeIngredients = recipeDto.Ingredients?.Select(i => i.FromDto())
-                    .ToList(),
-                Steps = recipeDto.Steps
-                    .OrderBy(s => s.Order)
-                    .ToList(),
-                RecipeDietTypes = recipeDto.DietTypes?.Select(mdt => new RecipeDietType{ RecipeId = recipeDto.Id, DietTypeId = mdt}).ToList(),
                 Slug = recipeDto.Slug,
                 Priority = recipeDto.Priority,
                 Deleted = recipeDto.IsDeleted

@@ -138,14 +138,19 @@ namespace MealsService.Recipes
                 recipe.Slug = GenerateSlug(recipe.Name, recipeDto.Id);
             }
 
-            var recipeIngredients = recipe.RecipeIngredients;
-
+            var recipeIngredients = recipeDto.Ingredients?.Select(i => i.FromDto()).ToList();
+            
             if (_repository.SaveRecipe(recipe) &&
                 _repository.SetDietTypes(recipe.Id, recipeDto.DietTypes) &&
                 _repository.SetRecipeIngredients(recipe.Id, recipeIngredients) &&
                 _repository.SetRecipeSteps(recipe.Id, recipeDto.Steps))
             {
-                return recipe.ToDto();
+                var dto = recipe.ToDto();
+                NormalizeIngredientsForRecipe(dto);
+
+                _localCache.Remove(CacheKeys.Recipes.AllRecipes);
+
+                return dto;
             }
 
             return null;

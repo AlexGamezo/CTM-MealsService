@@ -80,32 +80,33 @@ namespace MealsService.Recipes
         public bool SetDietTypes(int recipeId, List<int> dietTypeIds)
         {
             var changes = false;
-            var recipe = _dbContext.Recipes.Find(recipeId);
+            var recipeDietTypes = _dbContext.RecipeDietTypes.Where(dt => dt.RecipeId == recipeId).ToList();
+            
+            if (dietTypeIds == null)
+            {
+                dietTypeIds = new List<int>();
+            }
 
             for (var i = 0; i < dietTypeIds.Count; i++)
             {
-                if (recipe.RecipeDietTypes?.Count > i)
+                if (recipeDietTypes.Count > i)
                 {
-                    if (recipe.RecipeDietTypes[i].DietTypeId != dietTypeIds[i])
+                    if (recipeDietTypes[i].DietTypeId != dietTypeIds[i])
                     {
-                        recipe.RecipeDietTypes[i].DietTypeId = dietTypeIds[i];
+                        recipeDietTypes[i].DietTypeId = dietTypeIds[i];
                         changes = true;
                     }
                 }
                 else
                 {
                     changes = true;
-                    if (recipe.RecipeDietTypes == null)
-                    {
-                        recipe.RecipeDietTypes = new List<RecipeDietType>();
-                    }
-                    recipe.RecipeDietTypes.Add(new RecipeDietType { DietTypeId = dietTypeIds[i] });
+                    _dbContext.RecipeDietTypes.Add(new RecipeDietType { DietTypeId = dietTypeIds[i] });
                 }
             }
-            if (dietTypeIds.Count < recipe.RecipeDietTypes.Count)
+            if (dietTypeIds.Count < recipeDietTypes.Count)
             {
-                var countToRemove = recipe.RecipeDietTypes.Count - dietTypeIds.Count;
-                var toDelete = recipe.RecipeDietTypes.GetRange(dietTypeIds.Count, countToRemove);
+                var countToRemove = recipeDietTypes.Count - dietTypeIds.Count;
+                var toDelete = recipeDietTypes.GetRange(dietTypeIds.Count, countToRemove);
 
                 changes = true;
                 _dbContext.RecipeDietTypes.RemoveRange(toDelete);
@@ -117,41 +118,44 @@ namespace MealsService.Recipes
         public bool SetRecipeIngredients(int recipeId, List<RecipeIngredient> ingredients)
         {
             var changes = false;
-            var recipe = _dbContext.Recipes.Find(recipeId);
+            var recipeIngredients = _dbContext.RecipeIngredients.Where(ri => ri.RecipeId == recipeId).ToList();
+
+            if (ingredients == null)
+            {
+                ingredients = new List<RecipeIngredient>();
+            }
 
             for (var i = 0; i < ingredients.Count; i++)
             {
-                if (recipe.RecipeIngredients?.Count > i)
+                if (recipeIngredients.Count > i)
                 {
-                    if (recipe.RecipeIngredients[i].IngredientId != ingredients[i].IngredientId)
+                    if (recipeIngredients[i].IngredientId != ingredients[i].IngredientId)
                     {
-                        recipe.RecipeIngredients[i].IngredientId = ingredients[i].IngredientId;
+                        recipeIngredients[i].IngredientId = ingredients[i].IngredientId;
                         changes = true;
                     }
-                    if (Math.Abs(recipe.RecipeIngredients[i].Amount - ingredients[i].Amount) > 0.001)
+                    if (Math.Abs(recipeIngredients[i].Amount - ingredients[i].Amount) > 0.001)
                     {
-                        recipe.RecipeIngredients[i].Amount = ingredients[i].Amount;
+                        recipeIngredients[i].Amount = ingredients[i].Amount;
                         changes = true;
                     }
                 }
                 else
                 {
                     changes = true;
-                    if (recipe.RecipeIngredients == null)
+                    
+                    _dbContext.RecipeIngredients.Add(new RecipeIngredient
                     {
-                        recipe.RecipeIngredients = new List<RecipeIngredient>();
-                    }
-                    recipe.RecipeIngredients.Add(new RecipeIngredient
-                    {
+                        RecipeId = recipeId,
                         IngredientId = ingredients[i].IngredientId,
                         Amount = ingredients[i].Amount
                     });
                 }
             }
-            if (ingredients.Count < recipe.RecipeIngredients.Count)
+            if (ingredients.Count < recipeIngredients.Count)
             {
-                var countToRemove = recipe.RecipeIngredients.Count - ingredients.Count;
-                var toDelete = recipe.RecipeIngredients.GetRange(ingredients.Count, countToRemove);
+                var countToRemove = recipeIngredients.Count - ingredients.Count;
+                var toDelete = recipeIngredients.GetRange(ingredients.Count, countToRemove);
 
                 changes = true;
                 _dbContext.RecipeIngredients.RemoveRange(toDelete);
@@ -163,37 +167,38 @@ namespace MealsService.Recipes
         public bool SetRecipeSteps(int recipeId, List<RecipeStep> steps)
         {
             var changes = false;
-            var recipe = _dbContext.Recipes.Find(recipeId);
+            var recipeSteps = _dbContext.RecipeSteps.Where(rs => rs.RecipeId == recipeId).ToList();
+
+            if (steps == null)
+            {
+                steps = new List<RecipeStep>();
+            }
 
             for (var i = 0; i < steps.Count; i++)
             {
-                if (recipe.Steps?.Count > i)
+                if (recipeSteps?.Count > i)
                 {
-                    if (recipe.Steps[i].Text != steps[i].Text)
+                    if (recipeSteps[i].Text != steps[i].Text)
                     {
-                        recipe.Steps[i].Text = steps[i].Text;
+                        recipeSteps[i].Text = steps[i].Text;
                         changes = true;
                     }
-                    if (recipe.Steps[i].Order != steps[i].Order)
+                    if (recipeSteps[i].Order != steps[i].Order)
                     {
-                        recipe.Steps[i].Order = steps[i].Order;
+                        recipeSteps[i].Order = steps[i].Order;
                         changes = true;
                     }
                 }
                 else
                 {
                     changes = true;
-                    if (recipe.Steps == null)
-                    {
-                        recipe.Steps = new List<RecipeStep>();
-                    }
-                    recipe.Steps.Add(new RecipeStep { Text = steps[i].Text, Order = steps[i].Order });
+                    recipeSteps.Add(new RecipeStep { RecipeId = recipeId, Text = steps[i].Text, Order = steps[i].Order });
                 }
             }
-            if (steps.Count < recipe.Steps.Count)
+            if (steps.Count < recipeSteps.Count)
             {
-                var countToRemove = recipe.Steps.Count - steps.Count;
-                var toDelete = recipe.Steps.GetRange(steps.Count, countToRemove);
+                var countToRemove = recipeSteps.Count - steps.Count;
+                var toDelete = recipeSteps.GetRange(steps.Count, countToRemove);
 
                 changes = true;
                 _dbContext.RecipeSteps.RemoveRange(toDelete);
