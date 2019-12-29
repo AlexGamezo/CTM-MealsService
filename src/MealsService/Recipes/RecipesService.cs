@@ -33,6 +33,7 @@ namespace MealsService.Recipes
         public List<RecipeDto> ListRecipes(RecipeListRequest request = null)
         {
             var dtos = ListRecipesInternal()
+                .Where(r => request?.RecipeIds == null || !request.RecipeIds.Any() || request.RecipeIds.Contains(r.Id))
                 .Select(r => r.ToDto())
                 .ToList();
 
