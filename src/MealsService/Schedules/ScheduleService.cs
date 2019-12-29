@@ -20,7 +20,6 @@ using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
 using MealsService.Users;
-using MealsService.Users.Data;
 
 namespace MealsService.Schedules
 {
@@ -37,7 +36,6 @@ namespace MealsService.Schedules
         
         private ScheduleRepository _scheduleRepo;
         private RequestContext _requestContext;
-        private UsersService _usersService;
 
         private const int JOURNEY_CONFIRMS_ID = 1;
 
@@ -45,7 +43,6 @@ namespace MealsService.Schedules
             SubscriptionsService subscriptionService,
             ScheduleRepository repo,
             RequestContext requestContext,
-            UsersService usersService,
             IShoppingListService shoppingListService,
             IUserRecipesService userRecipesService,
             IMemcachedClient memcached,
@@ -60,7 +57,6 @@ namespace MealsService.Schedules
 
             _requestContext = requestContext;
 
-            _usersService = usersService;
 
             _memcached = memcached;
 
