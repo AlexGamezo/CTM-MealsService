@@ -124,7 +124,7 @@ namespace MealsService.Recipes
         [HttpPost("{id:int}/votes")]
         public async Task<IActionResult> VoteAsync(int id, [FromBody] RecipeVoteDto request)
         {
-            var success = await _userRecipesService.AddRecipeVoteAsync(id, AuthorizedUser, request.Vote);
+            var success = await _userRecipesService.AddRecipeVoteAsync(AuthorizedUser, id, request.Vote);
             var response = new RecipeVoteResponse
             {
                 RecipeId = id, Vote = request.Vote
