@@ -39,6 +39,11 @@ namespace MealsService.Recipes
                 throw StandardErrors.ForbiddenRequest;
             }
 
+            if (request.UserId == 0)
+            {
+                request.UserId = AuthorizedUser;
+            }
+
             if (!IsAdmin && request.IncludeDeleted)
             {
                 request.IncludeDeleted = false;
