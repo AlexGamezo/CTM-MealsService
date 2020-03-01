@@ -42,7 +42,9 @@ namespace MealsService.Schedules
 
             return dbContext.Meals.Include(s => s.ScheduleDay)
                 .Include(m => m.Preparation)
-                .ThenInclude(p => p.Meals)
+                    .ThenInclude(p => p.ScheduleDay)
+                .Include(m => m.Preparation)
+                    .ThenInclude(p => p.Meals)
                 .FirstOrDefault(s => s.Id == slotId);
         }
 

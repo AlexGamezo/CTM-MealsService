@@ -2,45 +2,45 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 using MealsService.Recipes.Data;
-using MealsService.Recipes.Dtos;
 
 namespace MealsService.Recipes
 {
-    public class RecipeRepository
+    public class RecipeRepository : IRecipeRepository
     {
-        private IServiceProvider _serviceContainer;
+        private MealsDbContext _dbContext;
 
-        public RecipeRepository(IServiceProvider serviceContainer)
+        public RecipeRepository(MealsDbContext dbContext)
         {
-            _serviceContainer = serviceContainer;
+            _dbContext = dbContext;
         }
 
-        public List<Recipe> ListRecipes(bool includeDeleted = false)
+        public List<Recipe> ListRecipes()
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
-            return dbContext.Recipes
+            return _dbContext.Recipes
                 .Include(m => m.RecipeIngredients)
                     .ThenInclude(mi => mi.Ingredient)
                         .ThenInclude(i => i.IngredientCategory)
                 .Include(m => m.RecipeIngredients)
                     .ThenInclude(mi => mi.Ingredient)
-                        .ThenInclude(i => i.IngredientMeasureTypes)
-                            .ThenInclude(im => im.MeasureType)
                 .Include(m => m.Steps)
                 .Include(m => m.RecipeDietTypes)
-                .Where(r => includeDeleted || !r.Deleted)
+                .Where(r => !r.Deleted)
                 .ToList();
         }
 
-        public List<RecipeVote> GetUserVotes(int userId)
+        public List<Recipe> ListRecipesWithDeleted()
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
-            return dbContext.RecipeVotes.Where(v => v.UserId == userId).ToList();
+            return _dbContext.Recipes
+                .Include(m => m.RecipeIngredients)
+                .ThenInclude(mi => mi.Ingredient)
+                .ThenInclude(i => i.IngredientCategory)
+                .Include(m => m.RecipeIngredients)
+                .ThenInclude(mi => mi.Ingredient)
+                .Include(m => m.Steps)
+                .Include(m => m.RecipeDietTypes)
+                .ToList();
         }
 
         public bool DeleteRecipe(int recipeId)
@@ -58,185 +58,154 @@ namespace MealsService.Recipes
 
         public bool SaveRecipe(Recipe recipe)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
             if (recipe.Id > 0)
             {
-                var tracked = dbContext.ChangeTracker.Entries<Recipe>()
+                var tracked = _dbContext.ChangeTracker.Entries<Recipe>()
                     .FirstOrDefault(m => m.Entity.Id == recipe.Id);
                 if (tracked != null)
                 {
-                    dbContext.Entry(tracked.Entity).State = EntityState.Detached;
+                    _dbContext.Entry(tracked.Entity).State = EntityState.Detached;
                 }
-                dbContext.Recipes.Attach(recipe);
-                dbContext.Entry(recipe).State = EntityState.Modified;
+                _dbContext.Recipes.Attach(recipe);
+                _dbContext.Entry(recipe).State = EntityState.Modified;
             }
             else
             {
-                dbContext.Recipes.Add(recipe);
+                _dbContext.Recipes.Add(recipe);
             }
 
-            return dbContext.SaveChanges() > 0;
+            return _dbContext.SaveChanges() > 0;
         }
 
-        public bool SetDietTypes(Recipe recipe, List<int> dietTypeIds)
+        public bool SetDietTypes(int recipeId, List<int> dietTypeIds)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
             var changes = false;
+            var recipeDietTypes = _dbContext.RecipeDietTypes.Where(dt => dt.RecipeId == recipeId).ToList();
+            
+            if (dietTypeIds == null)
+            {
+                dietTypeIds = new List<int>();
+            }
 
             for (var i = 0; i < dietTypeIds.Count; i++)
             {
-                if (recipe.RecipeDietTypes?.Count > i)
+                if (recipeDietTypes.Count > i)
                 {
-                    if (recipe.RecipeDietTypes[i].DietTypeId != dietTypeIds[i])
+                    if (recipeDietTypes[i].DietTypeId != dietTypeIds[i])
                     {
-                        recipe.RecipeDietTypes[i].DietTypeId = dietTypeIds[i];
+                        recipeDietTypes[i].DietTypeId = dietTypeIds[i];
                         changes = true;
                     }
                 }
                 else
                 {
                     changes = true;
-                    if (recipe.RecipeDietTypes == null)
-                    {
-                        recipe.RecipeDietTypes = new List<RecipeDietType>();
-                    }
-                    recipe.RecipeDietTypes.Add(new RecipeDietType { DietTypeId = dietTypeIds[i] });
+                    _dbContext.RecipeDietTypes.Add(new RecipeDietType { DietTypeId = dietTypeIds[i] });
                 }
             }
-            if (dietTypeIds.Count < recipe.RecipeDietTypes.Count)
+            if (dietTypeIds.Count < recipeDietTypes.Count)
             {
-                var countToRemove = recipe.RecipeDietTypes.Count - dietTypeIds.Count;
-                var toDelete = recipe.RecipeDietTypes.GetRange(dietTypeIds.Count, countToRemove);
+                var countToRemove = recipeDietTypes.Count - dietTypeIds.Count;
+                var toDelete = recipeDietTypes.GetRange(dietTypeIds.Count, countToRemove);
 
                 changes = true;
-                dbContext.RecipeDietTypes.RemoveRange(toDelete);
+                _dbContext.RecipeDietTypes.RemoveRange(toDelete);
             }
 
-            return !changes || dbContext.SaveChanges() > 0;
+            return !changes || _dbContext.SaveChanges() > 0;
         }
 
-        public bool SetRecipeIngredients(Recipe recipe, List<RecipeIngredientDto> ingredients)
+        public bool SetRecipeIngredients(int recipeId, List<RecipeIngredient> ingredients)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
             var changes = false;
+            var recipeIngredients = _dbContext.RecipeIngredients.Where(ri => ri.RecipeId == recipeId).ToList();
+
+            if (ingredients == null)
+            {
+                ingredients = new List<RecipeIngredient>();
+            }
 
             for (var i = 0; i < ingredients.Count; i++)
             {
-                if (recipe.RecipeIngredients?.Count > i)
+                if (recipeIngredients.Count > i)
                 {
-                    if (recipe.RecipeIngredients[i].IngredientId != ingredients[i].IngredientId)
+                    if (recipeIngredients[i].IngredientId != ingredients[i].IngredientId)
                     {
-                        recipe.RecipeIngredients[i].IngredientId = ingredients[i].IngredientId;
+                        recipeIngredients[i].IngredientId = ingredients[i].IngredientId;
                         changes = true;
                     }
-                    if (Math.Abs(recipe.RecipeIngredients[i].Amount - ingredients[i].Quantity) > 0.001)
+                    if (Math.Abs(recipeIngredients[i].Amount - ingredients[i].Amount) > 0.001)
                     {
-                        recipe.RecipeIngredients[i].Amount = ingredients[i].Quantity;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].AmountType != ingredients[i].Measure)
-                    {
-                        recipe.RecipeIngredients[i].AmountType = ingredients[i].Measure;
-                        changes = true;
-                    }
-                    if (recipe.RecipeIngredients[i].MeasureTypeId != ingredients[i].MeasureTypeId)
-                    {
-                        recipe.RecipeIngredients[i].MeasureTypeId = ingredients[i].MeasureTypeId;
+                        recipeIngredients[i].Amount = ingredients[i].Amount;
                         changes = true;
                     }
                 }
                 else
                 {
                     changes = true;
-                    if (recipe.RecipeIngredients == null)
+                    
+                    _dbContext.RecipeIngredients.Add(new RecipeIngredient
                     {
-                        recipe.RecipeIngredients = new List<RecipeIngredient>();
-                    }
-                    recipe.RecipeIngredients.Add(new RecipeIngredient
-                    {
+                        RecipeId = recipeId,
                         IngredientId = ingredients[i].IngredientId,
-                        Amount = ingredients[i].Quantity,
-                        AmountType = ingredients[i].Measure,
-                        MeasureTypeId = ingredients[i].MeasureTypeId
+                        Amount = ingredients[i].Amount
                     });
                 }
             }
-            if (ingredients.Count < recipe.RecipeIngredients.Count)
+            if (ingredients.Count < recipeIngredients.Count)
             {
-                var countToRemove = recipe.RecipeIngredients.Count - ingredients.Count;
-                var toDelete = recipe.RecipeIngredients.GetRange(ingredients.Count, countToRemove);
+                var countToRemove = recipeIngredients.Count - ingredients.Count;
+                var toDelete = recipeIngredients.GetRange(ingredients.Count, countToRemove);
 
                 changes = true;
-                dbContext.RecipeIngredients.RemoveRange(toDelete);
+                _dbContext.RecipeIngredients.RemoveRange(toDelete);
             }
 
-            return !changes || dbContext.SaveChanges() > 0;
+            return !changes || _dbContext.SaveChanges() > 0;
         }
 
-        public bool SetRecipeSteps(Recipe recipe, List<RecipeStep> steps)
+        public bool SetRecipeSteps(int recipeId, List<RecipeStep> steps)
         {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
             var changes = false;
+            var recipeSteps = _dbContext.RecipeSteps.Where(rs => rs.RecipeId == recipeId).ToList();
+
+            if (steps == null)
+            {
+                steps = new List<RecipeStep>();
+            }
 
             for (var i = 0; i < steps.Count; i++)
             {
-                if (recipe.Steps?.Count > i)
+                if (recipeSteps?.Count > i)
                 {
-                    if (recipe.Steps[i].Text != steps[i].Text)
+                    if (recipeSteps[i].Text != steps[i].Text)
                     {
-                        recipe.Steps[i].Text = steps[i].Text;
+                        recipeSteps[i].Text = steps[i].Text;
                         changes = true;
                     }
-                    if (recipe.Steps[i].Order != steps[i].Order)
+                    if (recipeSteps[i].Order != steps[i].Order)
                     {
-                        recipe.Steps[i].Order = steps[i].Order;
+                        recipeSteps[i].Order = steps[i].Order;
                         changes = true;
                     }
                 }
                 else
                 {
                     changes = true;
-                    if (recipe.Steps == null)
-                    {
-                        recipe.Steps = new List<RecipeStep>();
-                    }
-                    recipe.Steps.Add(new RecipeStep { Text = steps[i].Text, Order = steps[i].Order });
+                    recipeSteps.Add(new RecipeStep { RecipeId = recipeId, Text = steps[i].Text, Order = steps[i].Order });
                 }
             }
-            if (steps.Count < recipe.Steps.Count)
+            if (steps.Count < recipeSteps.Count)
             {
-                var countToRemove = recipe.Steps.Count - steps.Count;
-                var toDelete = recipe.Steps.GetRange(steps.Count, countToRemove);
+                var countToRemove = recipeSteps.Count - steps.Count;
+                var toDelete = recipeSteps.GetRange(steps.Count, countToRemove);
 
                 changes = true;
-                dbContext.RecipeSteps.RemoveRange(toDelete);
+                _dbContext.RecipeSteps.RemoveRange(toDelete);
             }
 
-            return !changes || dbContext.SaveChanges() > 0;
+            return !changes || _dbContext.SaveChanges() > 0;
         }
 
-        public bool SaveVote(RecipeVote vote)
-        {
-            var dbContext = _serviceContainer.GetService<MealsDbContext>();
-
-            if (vote.Id > 0)
-            {
-                var tracked = dbContext.ChangeTracker.Entries<RecipeVote>()
-                    .FirstOrDefault(m => m.Entity.Id == vote.Id);
-                if (tracked != null)
-                {
-                    dbContext.Entry(tracked.Entity).State = EntityState.Detached;
-                }
-                dbContext.RecipeVotes.Attach(vote);
-                dbContext.Entry(vote).State = EntityState.Modified;
-            }
-            else
-            {
-                dbContext.RecipeVotes.Add(vote);
-            }
-
-            return dbContext.SaveChanges() > 0;
-        }
     }
 }

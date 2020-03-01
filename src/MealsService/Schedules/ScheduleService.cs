@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Enyim.Caching;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NodaTime;
 
@@ -11,59 +10,66 @@ using MealsService.Common;
 using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
 using MealsService.Diets;
-using MealsService.Email;
 using MealsService.Infrastructure;
 using MealsService.Recipes;
 using MealsService.Recipes.Data;
 using MealsService.Recipes.Dtos;
 using MealsService.Requests;
 using MealsService.Responses.Schedules;
-using MealsService.Schedules;
 using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
 using MealsService.ShoppingList;
-using MealsService.Stats;
 using MealsService.Users;
-using MealsService.Users.Data;
 
-namespace MealsService.Services
+namespace MealsService.Schedules
 {
-    public class ScheduleService
+    public class ScheduleService : IScheduleService
     {
-        private DietService _dietService;
-        private RecipesService _recipesService;
-        private SubscriptionsService _subscriptionsService;
-        private IServiceProvider _serviceProvider;
-        private StatsService _statsService;
+        private IUserRecipesService _userRecipesService;
+        private IShoppingListService _shoppingListService;
+
         private IMemcachedClient _memcached;
-
-        private ScheduleRepository _scheduleRepo;
-
         private ILogger<ScheduleService> _logger;
 
-        public ScheduleService(DietService dietService, RecipesService recipesService, SubscriptionsService subscriptionService,
-            StatsService statsService, IServiceProvider serviceProvider)
+        private DietService _dietService;
+        private SubscriptionsService _subscriptionsService;
+        
+        private ScheduleRepository _scheduleRepo;
+        private RequestContext _requestContext;
+
+        private const int JOURNEY_CONFIRMS_ID = 1;
+
+        public ScheduleService(DietService dietService,
+            SubscriptionsService subscriptionService,
+            ScheduleRepository repo,
+            RequestContext requestContext,
+            IShoppingListService shoppingListService,
+            IUserRecipesService userRecipesService,
+            IMemcachedClient memcached,
+            ILoggerFactory loggerFactory)
         {
-            _scheduleRepo = new ScheduleRepository(serviceProvider);
+            _scheduleRepo = repo;
 
             _dietService = dietService;
-            _recipesService = recipesService;
+            _userRecipesService = userRecipesService;
             _subscriptionsService = subscriptionService;
-            _serviceProvider = serviceProvider;
-            _statsService = statsService;
+            _shoppingListService = shoppingListService;
 
-            _memcached = _serviceProvider.GetService<IMemcachedClient>();
+            _requestContext = requestContext;
 
-            _logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<ScheduleService>();
+
+            _memcached = memcached;
+
+            _logger = loggerFactory.CreateLogger<ScheduleService>();
         }
 
-        public async Task<List<ScheduleDayDto>> GetScheduleAsync(int userId, LocalDate start, LocalDate? end, bool regenIfEmpty = true)
+        public async Task<List<ScheduleDayDto>> GetScheduleAsync(int userId, LocalDate start)
         {
             await _subscriptionsService.VerifyDateInSubscriptionAsync(userId, start);
 
             var schedule = await _memcached.GetValueOrCreateAsync(
                 CacheKeys.Schedule.UserSchedule(userId, start.GetWeekStart().ToDateTimeUnspecified()), 60,
-                async () => (await GetScheduleInternalAsync(userId, start.GetWeekStart(), end, regenIfEmpty))
+                async () => (await GetScheduleInternalAsync(userId, start.GetWeekStart()))
                     .Select(ToScheduleDayDto).ToList());
             
             return schedule;
@@ -108,9 +114,8 @@ namespace MealsService.Services
             }
 
             var weekStart = currentMeal.ScheduleDay.NodaDate.GetWeekStart();
-            var weekEnd = weekStart.GetWeekEnd();
-
-            var schedule = await GetScheduleAsync(userId, weekStart, weekEnd);
+            
+            var schedule = await GetScheduleAsync(userId, weekStart);
             
             var targetDay = schedule.FirstOrDefault(d => dayId != currentMeal.ScheduleDayId && d.Id == dayId);
             //TODO: this prevents replacing a meal, need to support swapping or force-replacing
@@ -154,16 +159,15 @@ namespace MealsService.Services
 
             var weekStart = currentPrep.ScheduleDay.NodaDate.GetWeekStart();
 
-            var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-            await shoppingListService.GetShoppingListAsync(userId, weekStart);
+            await _shoppingListService.GetShoppingListAsync(userId, weekStart);
 
-            shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) });
+            _shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) });
 
             _scheduleRepo.SetPreparationRecipeId(prepId, recipeId);
 
             currentPrep = _scheduleRepo.GetPreparation(prepId);
 
-            shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) }, weekStart);
+            _shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> { ToPreparationDto(currentPrep) }, weekStart);
 
             ClearScheduleCache(userId, weekStart);
         }
@@ -185,9 +189,8 @@ namespace MealsService.Services
             }
 
             var weekStart = currentPrep.ScheduleDay.NodaDate.GetWeekStart();
-            var weekEnd = weekStart.GetWeekEnd();
-
-            var schedule = await GetScheduleAsync(userId, weekStart, weekEnd);
+            
+            var schedule = await GetScheduleAsync(userId, weekStart);
             var targetDay = schedule.FirstOrDefault(d => dayId != currentPrep.ScheduleDayId && d.Id == dayId);
             //Prevent collapsing days
             //TODO: this prevents replacing a meal, need to support swapping or force-replacing
@@ -230,15 +233,14 @@ namespace MealsService.Services
                 throw ScheduleErrors.CantMoveConfirmedMeal;
             }
 
-            var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-            await shoppingListService.GetShoppingListAsync(userId, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
+            await _shoppingListService.GetShoppingListAsync(userId, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
 
-            shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto>{ ToPreparationDto(currentMeal.Preparation)});
+            _shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto>{ ToPreparationDto(currentMeal.Preparation)});
 
             _scheduleRepo.SetMealServings(slotId, numServings);
 
             var prep = _scheduleRepo.GetPreparation(currentMeal.PreparationId);
-            shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> {ToPreparationDto(prep)}, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
+            _shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> {ToPreparationDto(prep)}, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
 
             ClearScheduleCache(userId, currentMeal.ScheduleDay.NodaDate.GetWeekStart());
 
@@ -249,7 +251,7 @@ namespace MealsService.Services
         {
             await _subscriptionsService.VerifyDateInSubscriptionAsync(userId, date);
 
-            var scheduleDay = (await GetScheduleInternalAsync(userId, date, null))
+            var scheduleDay = (await GetScheduleInternalAsync(userId, date))
                 .FirstOrDefault(d => d.NodaDate == date);
 
             //If date is in the past, we don't generate a schedule
@@ -278,11 +280,9 @@ namespace MealsService.Services
                     DietTypeId = scheduleDay.DietTypeId,
                     MealType = mealType,
                 };
-                
-                //TODO: preference recipes not present this week
-                //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
-                var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
 
+                var recipe = await _userRecipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
+                
                 var prep = new Preparation
                 {
                     UserId = userId,
@@ -313,10 +313,9 @@ namespace MealsService.Services
             scheduleDay.Preparations.AddRange(preparations);
             _scheduleRepo.SaveScheduleDays(new List<ScheduleDay> {scheduleDay});
 
-            var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-            await shoppingListService.GetShoppingListAsync(userId, date.GetWeekStart());
+            await _shoppingListService.GetShoppingListAsync(userId, date.GetWeekStart());
 
-            shoppingListService.HandlePreparationsAdded(userId, preparations.Select(ToPreparationDto).ToList(), date.GetWeekStart());
+            _shoppingListService.HandlePreparationsAdded(userId, preparations.Select(ToPreparationDto).ToList(), date.GetWeekStart());
 
             ClearScheduleCache(userId, date.GetWeekStart());
 
@@ -328,7 +327,7 @@ namespace MealsService.Services
             await _subscriptionsService.VerifyDateInSubscriptionAsync(userId, date);
             var dateTime = date.ToDateTimeUnspecified();
 
-            var scheduleDay = (await GetScheduleAsync(userId, date, null))
+            var scheduleDay = (await GetScheduleAsync(userId, date))
                 .FirstOrDefault(d => d.Date == dateTime);
 
             if (scheduleDay?.Meals == null || !scheduleDay.Meals.Any() ||
@@ -337,14 +336,13 @@ namespace MealsService.Services
                 return null;
             }
 
-            var shoppingListService = (ShoppingListService) _serviceProvider.GetService(typeof(ShoppingListService));
             var preparations = scheduleDay.Meals.Select(m => m.Preparation).ToList();
-            shoppingListService.HandlePreparationsRemoved(userId, preparations);
+            _shoppingListService.HandlePreparationsRemoved(userId, preparations);
 
             _scheduleRepo.RemovePreparations(preparations.Select(p => p.Id).ToList());
             ClearScheduleCache(userId, date.GetWeekStart());
 
-            scheduleDay = (await GetScheduleAsync(userId, date, null))
+            scheduleDay = (await GetScheduleAsync(userId, date))
                 .FirstOrDefault(d => d.Date == dateTime);
 
 
@@ -368,10 +366,9 @@ namespace MealsService.Services
             var weekBeginning = preparation.ScheduleDay.NodaDate.GetWeekStart();
             if (updateShoppingList && preparation.RecipeId > 0)
             {
-                var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-                await shoppingListService.GetShoppingListAsync(userId, weekBeginning);
+                await _shoppingListService.GetShoppingListAsync(userId, weekBeginning);
 
-                shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto>{ ToPreparationDto(preparation)});
+                _shoppingListService.HandlePreparationsRemoved(userId, new List<PreparationDto>{ ToPreparationDto(preparation)});
             }
 
             //TODO: Add tracking for individual slot regeneration
@@ -382,7 +379,7 @@ namespace MealsService.Services
                 MealType = preparation.MealType,
             };
 
-            var myVotes = await _recipesService.GetVotesAsync(userId);
+            var myVotes = await _userRecipesService.ListRecipeVotesAsync(userId);
 
             var recipeWeights = new Dictionary<int, int>
             {
@@ -397,17 +394,14 @@ namespace MealsService.Services
                     recipeWeights.Add(vote.RecipeId, 100 * (vote.Vote == RecipeVote.VoteType.LIKE ? -1 : 1));
                 }
             }
-            
-            //TODO: preference recipes not present this week
-            //TODO: Pull recipe preferences to filter for style of recipe (Quick&Dirty, Healthy, etc)
-            var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
-            
+
+            var recipe = await _userRecipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
+
             if (recipe != null && recipe.Id != preparation.RecipeId && _scheduleRepo.SetPreparationRecipeId(preparationId, recipe.Id))
             {
                 if (updateShoppingList)
                 {
-                    var shoppingListService = (ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService));
-                    shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> { ToPreparationDto(preparation) }, weekBeginning);
+                    _shoppingListService.HandlePreparationsAdded(userId, new List<PreparationDto> { ToPreparationDto(preparation) }, weekBeginning);
                 }
 
                 ClearScheduleCache(userId, weekBeginning);
@@ -435,7 +429,7 @@ namespace MealsService.Services
             _scheduleRepo.TrackScheduleGeneration(userId, start.ToDateTimeUnspecified(), end.ToDateTimeUnspecified());
 
             //TODO: Take into account schedule for days/weeks before and after this timeframe
-            var myVotes = await _recipesService.GetVotesAsync(userId);
+            var myVotes = await _userRecipesService.ListRecipeVotesAsync(userId);
 
             var usedRecipeCounts = new Dictionary<int, int>();
             foreach (var vote in myVotes)
@@ -493,7 +487,7 @@ namespace MealsService.Services
                 randomRecipeRequest.DietTypeId = genDay.DietTypeId;
                 randomRecipeRequest.MealType = generator.MealType;
 
-                var recipe = await _recipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
+                var recipe = await _userRecipesService.GetRandomRecipeAsync(randomRecipeRequest, userId);
 
                 if (recipe != null)
                 {
@@ -530,6 +524,8 @@ namespace MealsService.Services
             }
 
             _scheduleRepo.SaveScheduleDays(scheduleDays);
+
+            _shoppingListService.HandlePreparationsAdded(userId, scheduleDays.SelectMany(d => d.Preparations.Select(ToPreparationDto)).ToList(), start);
             
             ClearScheduleCache(userId, start);
         }
@@ -552,86 +548,12 @@ namespace MealsService.Services
 
             if (_scheduleRepo.SetConfirmState(mealId, confirm))
             {
-                var statService = _serviceProvider.GetService<StatsService>();
-
-                await statService.TrackCompletionAsync(userId, confirm == ConfirmStatus.CONFIRMED_YES ? 1 : -1, slot.IsChallenge);
-                
                 ClearScheduleCache(userId, slot.ScheduleDay.NodaDate.GetWeekStart());
 
                 return true;
             }
 
             return false;
-        }
-
-        public async Task<bool> SendNextWeekScheduleNotifications()
-        {
-            var requestContextFactory = _serviceProvider.GetService<RequestContextFactory>();
-            var userService = _serviceProvider.GetService<UsersService>();
-
-            var offset = 0;
-            var count = 200;
-            List<UserDto> users;
-            do
-            {
-                users = await userService.GetActiveUsers(count, offset);
-                
-                //TODO: Batch-get for Profile + Preferences, or filter as part of Profile GET request
-                for (var i = 0; i < users.Count; i++)
-                {
-                    var user = await requestContextFactory.StartRequestContext(users[i].UserId);
-
-                    var context = _serviceProvider.GetService<RequestContext>();
-                    if (context.UserId != 0 && user != null)
-                    {
-                        var prefs = await userService.GetUserPreferences(context.UserId);
-
-                        if (prefs != null && 
-                            (!prefs.Preferences.ContainsKey("mealPlanReminder") || prefs.Preferences["mealPlanReminder"] != "false"))
-                        {
-                            await SendNextWeekScheduleAsync(user);
-                        }
-                    }
-                }
-            } while (users.Any() && users.Count == count);
-
-            _serviceProvider.GetService<RequestContextFactory>().ClearContext();
-
-            return true;
-        }
-
-        public async Task<bool> SendNextWeekScheduleAsync(UserDto user)
-        {
-            try
-            {
-                var nowDate = SystemClock.Instance.GetCurrentInstant()
-                    .InZone(DateTimeZoneProviders.Tzdb.GetZoneOrNull(RequestContext.DEFAULT_TIMEZONE))
-                    .Date.PlusDays(7);
-
-                var schedule =
-                    (await GetScheduleAsync(user.UserId, nowDate.GetWeekStart(), nowDate.GetWeekEnd()))
-                    .ToList();
-                var recipeIds = schedule.SelectMany(d => d.Meals?.Select(m => m.RecipeId).ToList() ?? new List<int>())
-                    .ToList();
-
-                var stat = _statsService.GetDidYouKnowStat();
-
-                var model = new ScheduleRecipeContainer
-                {
-                    Schedule = schedule,
-                    Recipes = _serviceProvider.GetService<RecipesService>().GetRecipes(recipeIds)
-                        .ToDictionary(r => r.Id, r => r),
-                    DidYouKnowStat = stat
-                };
-
-                return await _serviceProvider.GetService<EmailService>()
-                    .SendEmail("MealPlanReady", user.Email, "Your meals for next week are ready", user.FullName, model);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "Failed to send next week schedule for user {0}", user.UserId);
-                return false;
-            }
         }
 
         public ScheduleDayDto ToScheduleDayDto(ScheduleDay day)
@@ -677,26 +599,22 @@ namespace MealsService.Services
             };
         }
 
-        private async Task<List<ScheduleDay>> GetScheduleInternalAsync(int userId, LocalDate start, LocalDate? end, bool regenIfEmpty = true)
+        private async Task<List<ScheduleDay>> GetScheduleInternalAsync(int userId, LocalDate start, bool regenIfEmpty = true)
         {
             var startDateTime = start.GetWeekStart().ToDateTimeUnspecified();
-            if (!end.HasValue)
-            {
-                end = start.GetWeekEnd();
-            }
-            var endDateTime = end.Value.ToDateTimeUnspecified();
+            var end = start.GetWeekEnd();
+            var endDateTime = end.ToDateTimeUnspecified();
 
             var schedule = _scheduleRepo.GetSchedule(userId, startDateTime, endDateTime);
 
             //TODO: Does this need to be relative to TimeZone???
-            var reqContext = _serviceProvider.GetService<RequestContext>();
             var curInstant = SystemClock.Instance.GetCurrentInstant();
-            var endInstant = end.Value.AtStartOfDayInZone(reqContext.Dtz).ToInstant();
+            var endInstant = end.AtStartOfDayInZone(_requestContext.Dtz).ToInstant();
             //If no schedule currently and not a past week, generate and recall method
             if (schedule.Count == 0 && endInstant >= curInstant && regenIfEmpty)
             {
-                await GenerateScheduleAsync(userId, start, end.Value, new GenerateScheduleRequest());
-                return await GetScheduleInternalAsync(userId, start, end, false);
+                await GenerateScheduleAsync(userId, start, end, new GenerateScheduleRequest());
+                return await GetScheduleInternalAsync(userId, start, false);
             }
 
             return schedule;
@@ -704,7 +622,7 @@ namespace MealsService.Services
 
         private void ClearSchedule(int userId, LocalDate start, LocalDate? end)
         {
-            ((ShoppingListService)_serviceProvider.GetService(typeof(ShoppingListService))).ClearShoppingList(userId, start);
+            _shoppingListService.ClearShoppingList(userId, start);
 
             _scheduleRepo.ClearSchedule(userId, start.ToDateTimeUnspecified(), end?.ToDateTimeUnspecified());
             ClearScheduleCache(userId, start);

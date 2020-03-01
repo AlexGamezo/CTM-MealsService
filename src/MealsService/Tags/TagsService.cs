@@ -1,50 +1,54 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using MealsService.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 using MealsService.Tags.Data;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
+using MealsService.Common;
 
 namespace MealsService.Tags
 {
-    public class TagsService
+    public interface ITagsService
+    {
+        List<Tag> ListTags();
+        List<Tag> SearchTags(string search);
+        List<Tag> GetOrCreateTags(IEnumerable<string> tagStrings);
+        List<Tag> GetTags(IEnumerable<string> tagStrings);
+        bool DeleteTag(string tag);
+        bool DeleteTagById(int id);
+    }
+
+    public class TagsService : ITagsService
     {
         private IMemoryCache _localCache;
-        private IServiceProvider _serviceProvider;
+        private ITagRepository _repo;
 
         private const int LIST_CACHE_TTL_SECONDS = 900;
 
-        public TagsService(IServiceProvider serviceProvider)
+        public TagsService(ITagRepository repo, IMemoryCache cache)
         {
-            _serviceProvider = serviceProvider;
-            _localCache = serviceProvider.GetService<IMemoryCache>();
+            _localCache = cache;
+            _repo = repo;
         }
 
-        public List<Tag> ListTags(string search = "", bool skipCache = false)
+        public List<Tag> ListTags()
         {
             List<Tag> tags = null;
 
-            if (skipCache)
+            return _localCache.GetOrCreate(CacheKeys.Tags.TagsList, entry =>
             {
-                tags = ListTagsInternal();
-            }
-            else
-            {
-                tags = _localCache.GetOrCreate(CacheKeys.Tags.TagsList, entry =>
-                {
-                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(LIST_CACHE_TTL_SECONDS);
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(LIST_CACHE_TTL_SECONDS);
 
-                    return ListTagsInternal();
-                });
-            }
+                return _repo.ListTags();
+            });
+        }
 
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                tags = tags.Where(t => t.Name.Contains(search)).ToList();
-            }
+        public List<Tag> SearchTags(string search)
+        {
+            var tags = ListTags()
+                .Where(t => t.Name.Contains(search))
+                .ToList();
 
             return tags;
         }
@@ -52,23 +56,31 @@ namespace MealsService.Tags
         public List<Tag> GetTags(IEnumerable<string> tags)
         {
             tags = tags.Select(t => t.ToLowerInvariant());
-            return ListTags().Where(t => tags.Contains(t.Name)).ToList();
+            var foundTags = ListTags().Where(t => tags.Contains(t.Name)).ToList();
+
+            return foundTags;
+        }
+
+        public List<Tag> GetOrCreateTags(IEnumerable<string> tags)
+        {
+            var foundTags = GetTags(tags);
+            var missingTags = tags
+                .Where(t => foundTags.All(ft => ft.Name != t))
+                .Select(t => new Tag { Name = t.ToLowerInvariant() })
+                .ToList();
+
+            if (_repo.SaveTags(missingTags))
+            {
+                foundTags.AddRange(missingTags);
+                ClearCacheList();
+            }
+
+            return foundTags;
         }
 
         public bool UpdateTag(Tag tag)
         {
-            var dbContext = _serviceProvider.GetService<MealsDbContext>();
-
-            if (tag.Id > 0)
-            {
-                dbContext.Tags.Update(tag);
-            }
-            else
-            {
-                dbContext.Tags.Add(tag);
-            }
-
-            if (dbContext.Entry(tag).State == EntityState.Unchanged || dbContext.SaveChanges() > 0)
+            if(_repo.SaveTag(tag))
             {
                 ClearCacheList();
                 return true;
@@ -77,25 +89,28 @@ namespace MealsService.Tags
             return false;
         }
 
-        public bool DeleteTag(int tagId)
+        public bool DeleteTag(string tag)
         {
-            var dbContext = _serviceProvider.GetService<MealsDbContext>();
-            dbContext.Tags.Remove(dbContext.Tags.Find(tagId));
-
-            if (dbContext.SaveChanges() > 0)
+            if (_repo.DeleteTag(tag))
             {
                 ClearCacheList();
-
                 return true;
             }
 
             return false;
         }
 
-        private List<Tag> ListTagsInternal()
+        public bool DeleteTagById(int id)
         {
-            var dbContext = _serviceProvider.GetService<MealsDbContext>();
-            return dbContext.Tags.ToList();
+            var foundTag = ListTags().FirstOrDefault(t => t.Id == id);
+
+            if (foundTag != null && _repo.DeleteTag(foundTag.Name))
+            {
+                ClearCacheList();
+                return true;
+            }
+
+            return false;
         }
 
         private void ClearCacheList()

@@ -1,45 +1,57 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+
+using NodaTime;
+using NodaTime.Text;
 
 using MealsService.Common;
 using MealsService.Common.Errors;
 using MealsService.Common.Extensions;
 using MealsService.Email;
 using MealsService.Infrastructure;
+using MealsService.Notifications;
 using MealsService.Responses;
-using MealsService.Services;
 using MealsService.Recipes;
 using MealsService.Requests;
+using MealsService.Schedules;
 using MealsService.Schedules.Data;
 using MealsService.Schedules.Dtos;
-using Microsoft.Extensions.DependencyInjection;
-using NodaTime;
-using NodaTime.Text;
+using MealsService.Stats;
 
 namespace MealsService.Controllers
 {
     [Route("[controller]")]
     public class ScheduleController : AuthorizedController
     {
-        private ScheduleService _scheduleService { get; }
-        private RecipesService _recipesService { get; }
-        private IServiceProvider _serviceProvider { get; }
+        private INotificationsService _notificationsService;
+        private EmailService _emailService;
+        private RequestContext _requestContext;
+        private ScheduleService _scheduleService;
+        private StatsService _statsService;
 
-        public ScheduleController(ScheduleService scheduleService, RecipesService recipesService, IServiceProvider serviceProvider)
+        public ScheduleController(ScheduleService scheduleService,
+            StatsService statsService,
+            EmailService emailService,
+            IRecipesService recipesService,
+            INotificationsService notificationsService,
+            RequestContext requestContext)
         {
             _scheduleService = scheduleService;
-            _recipesService = recipesService;
-            _serviceProvider = serviceProvider;
+            _statsService = statsService;
+
+            _emailService = emailService;
+            _notificationsService = notificationsService;
+
+            _requestContext = requestContext;
         }
 
         [Route("mealplanready"), HttpPost]
         public async Task<IActionResult> MealPlanReady()
         {
-            var success = await _scheduleService.SendNextWeekScheduleNotifications();
+            var success = await _notificationsService.SendNextWeekScheduleNotificationsAsync();
 
             return Json(success ? (object)new SuccessResponse() : new ErrorResponse("Could not send message", 500));
         }
@@ -47,8 +59,7 @@ namespace MealsService.Controllers
         [Route("email/test"), HttpPost]
         public async Task<IActionResult> TestEmail()
         {
-            var success = await _serviceProvider.GetService<EmailService>()
-                .SendEmail("Test", "alex@agamezo.com", "Test Email - 3/31/2019", "Alex Gamezo");
+            var success = await _emailService.SendEmail("Test", "alex@agamezo.com", "Test Email - 3/31/2019", "Alex Gamezo");
 
             return Json(success ? (object) new SuccessResponse() : new ErrorResponse("Could not send message", 500));
         }
@@ -81,11 +92,11 @@ namespace MealsService.Controllers
             }
             else
             {
-                var zone = _serviceProvider.GetService<RequestContext>().Dtz;
+                var zone = _requestContext.Dtz;
                 localDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
             }
 
-            var scheduleDays = (await _scheduleService.GetScheduleAsync(userId, localDate.GetWeekStart(), localDate.GetWeekEnd()))
+            var scheduleDays = (await _scheduleService.GetScheduleAsync(userId, localDate.GetWeekStart()))
                 .ToList();
 
             var recipeIds = scheduleDays.Where(d => d.Meals != null).SelectMany(d => d.Meals.Select(s => s.RecipeId));
@@ -129,6 +140,12 @@ namespace MealsService.Controllers
             else if (request.Op == MealPatchRequest.Operation.UpdateConfirmState)
             {
                 success = await _scheduleService.ConfirmMealAsync(userId, mealId, request.Confirm);
+                if (success)
+                {
+                    var increment = request.Confirm == ConfirmStatus.CONFIRMED_YES ? 1 : -1;
+                    //TODO: IsChallenge should be coming from the slot, not the request
+                    await _statsService.TrackCompletionAsync(userId, increment, request.IsChallenge);
+                }
             }
             else if (request.Op == MealPatchRequest.Operation.ChangeServings)
             {
@@ -236,7 +253,7 @@ namespace MealsService.Controllers
             }
 
             var end = localDate.GetWeekEnd();
-            var endInstant = end.AtStartOfDayInZone(_serviceProvider.GetService<RequestContext>().Dtz).ToInstant();
+            var endInstant = end.AtStartOfDayInZone(_requestContext.Dtz).ToInstant();
 
             if (endInstant > SystemClock.Instance.GetCurrentInstant())
             {
@@ -256,15 +273,14 @@ namespace MealsService.Controllers
                 userId = AuthorizedUser;
             }
 
-            var zone = _serviceProvider.GetService<RequestContext>().Dtz;
-            var startDate = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
+            var startDate = SystemClock.Instance.GetCurrentInstant().InZone(_requestContext.Dtz).Date;
 
-            var schedule = await _scheduleService.GetScheduleAsync(userId, startDate, startDate.GetWeekEnd());
+            var schedule = await _scheduleService.GetScheduleAsync(userId, startDate);
 
             if (!schedule.Any(d => d.Meals.Any(m => m.Confirmed == ConfirmStatus.UNSET)))
             {
                 startDate = startDate.PlusDays(7);
-                schedule = await _scheduleService.GetScheduleAsync(userId, startDate, startDate.GetWeekEnd());
+                schedule = await _scheduleService.GetScheduleAsync(userId, startDate);
             }
 
             var meal = schedule.SelectMany(d => d.Meals).First(m => m.Confirmed == ConfirmStatus.UNSET);

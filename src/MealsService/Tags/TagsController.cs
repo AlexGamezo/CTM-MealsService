@@ -1,12 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Linq;
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.AspNetCore.Authorization;
+using System.Collections.Generic;
 
 using MealsService.Responses;
-using MealsService.Recipes;
-using MealsService.Requests;
 using MealsService.Tags;
 using MealsService.Tags.Data;
 
@@ -25,7 +20,17 @@ namespace MealsService.Controllers
         [HttpGet]
         public IActionResult List(string search = "")
         {
-            var tags = _tagsService.ListTags(search);
+            List<Tag> tags = null;
+
+            if (string.IsNullOrEmpty(search))
+            {
+                tags = _tagsService.SearchTags(search);
+            }
+            else
+            {
+                tags = _tagsService.ListTags();
+            }
+
             return Json(new SuccessResponse<object>( new
             {
                 tags
@@ -51,7 +56,7 @@ namespace MealsService.Controllers
         [HttpDelete, Route("{id:int}")]
         public IActionResult Delete(int id)
         {
-            var success = _tagsService.DeleteTag(id);
+            var success = _tagsService.DeleteTagById(id);
 
             return Json(new SuccessResponse(success));
         }

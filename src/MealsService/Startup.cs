@@ -1,7 +1,6 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Amazon.S3;
-using MealsService.Common.Errors;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,15 +12,19 @@ using Microsoft.IdentityModel.Tokens;
 
 using MealsService.Configurations;
 using MealsService.Recipes;
-using MealsService.Services;
 using MealsService.Diets;
+using MealsService.Diets.Data;
 using MealsService.Email;
+using MealsService.Images;
 using MealsService.Infrastructure;
 using MealsService.Ingredients;
+using MealsService.Schedules;
 using MealsService.ShoppingList;
 using MealsService.Tags;
 using MealsService.Stats;
 using MealsService.Users;
+using MealsService.Common.Errors;
+using MealsService.Notifications;
 
 namespace MealsService
 {
@@ -33,6 +36,8 @@ namespace MealsService
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
+                .AddSystemsManager($"/Meals/{env.EnvironmentName}")
+                .AddSystemsManager($"/Shared/{env.EnvironmentName}")
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
         }
@@ -43,7 +48,7 @@ namespace MealsService
         public void ConfigureServices(IServiceCollection services)
         {
 
-            var connection = Configuration.GetConnectionString("DefaultConnection");
+            var connection = Configuration.GetConnectionString("MySQL");
             services.AddDbContext<MealsDbContext>(options => options.UseMySql(connection));
 
             services.AddEnyimMemcached();
@@ -51,31 +56,54 @@ namespace MealsService
 
             // Add framework services.
             services.AddMvc();
-            services.AddScoped<RecipesService>();
+            //services.AddScoped<RecipesService>();
+            services.AddScoped<IRecipesService, RecipesService>();
+            services.AddScoped<IUserRecipesService, UserRecipesService>();
+            services.AddScoped<IRecipeRepository, RecipeRepository>();
+            services.AddScoped<IUserRecipeRepository, UserRecipeRepository>();
+
             services.AddScoped<ScheduleService>();
-            services.AddScoped<IngredientsService>();
-            services.AddScoped<TagsService>();
+            services.AddScoped<IScheduleService, ScheduleService>();
+            services.AddScoped<ScheduleRepository>();
+            
+            services.AddScoped<IIngredientsService, IngredientsService>();
+            services.AddScoped<IIngredientsRepository, IngredientsRepository>();
+            
+            services.AddScoped<ITagRepository, TagRepository>();
+            services.AddScoped<ITagsService, TagsService>();
+            
             services.AddScoped<DietTypeService>();
             services.AddScoped<DietService>();
+            services.AddScoped<DietsRepository>();
+            
             services.AddScoped<SubscriptionsService>();
-            services.AddScoped<MeasureTypesService>();
+            
+            services.AddScoped<IImageService, ImageService>();
 
-            services.AddScoped<ShoppingListService>();
+            services.AddScoped<IShoppingListService, ShoppingListService>();
             services.AddScoped<ShoppingListRepository>();
+            
             services.AddScoped<StatsService>();
+            
             services.AddScoped<UsersService>();
+            
             services.AddScoped<RequestContext>();
             services.AddScoped<RequestContextFactory>();
-            services.AddScoped<EmailService>();
-            services.AddScoped<IViewRenderService, ViewRenderService>();
 
-            services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
-            services.Configure<CredentialsConfiguration>(Configuration.GetSection("Credentials"));
-            services.Configure<SendgridConfiguration>(Configuration.GetSection("Sendgrid"));
-            services.Configure<ServicesConfiguration>(Configuration.GetSection("Services"));
+            services.AddScoped<INotificationsService, NotificationsService>();
+
+            services.AddScoped<EmailService>();
+            
+            services.AddScoped<IViewRenderService, ViewRenderService>();
+            
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
             services.AddAWSService<IAmazonS3>();
-
+            services.Configure<AWSConfiguration>(Configuration.GetSection("AWS"));
+            
+            services.Configure<SendgridConfiguration>(Configuration.GetSection("Sendgrid"));
+            services.Configure<ServicesConfiguration>(Configuration.GetSection("Services"));
+            
+            services.Configure<CredentialsConfiguration>(Configuration.GetSection("Credentials"));
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
@@ -114,9 +142,9 @@ namespace MealsService
             app.UseCors(builder =>
             {
                 builder.WithOrigins(
-                        "http://localhost:63516",
-                        "http://localhost:63517",
+                        //Web local run host
                         "http://localhost:5000",
+                        //Admin local run host
                         "http://localhost:5003",
                         "https://www.greenerplate.com/"
                     )

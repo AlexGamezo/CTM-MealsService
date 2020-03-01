@@ -7,6 +7,7 @@ using MealsService.Schedules.Data;
 using MealsService.ShoppingList.Data;
 using MealsService.Stats.Data;
 using MealsService.Tags.Data;
+using System;
 
 namespace MealsService
 {
@@ -17,13 +18,9 @@ namespace MealsService
         { }
 
         public DbSet<DietType> DietTypes { get; set; }
-        public DbSet<MeasureType> MeasureTypes { get; set; }
-        public DbSet<MeasureConverter> MeasureConverters { get; set; }
-
         public DbSet<Ingredient> Ingredients { get; set; }
         public DbSet<IngredientCategory> IngredientCategories { get; set; }
         public DbSet<IngredientTag> IngredientTags { get; set; }
-        public DbSet<IngredientMeasureType> IngredientMeasureTypes { get; set; }
 
         public DbSet<RecipeDietType> RecipeDietTypes { get; set; } 
         public DbSet<RecipeIngredient> RecipeIngredients { get; set; }
@@ -40,6 +37,12 @@ namespace MealsService
         #region User-Specific
 
         public DbSet<ScheduleGenerated> ScheduleGenerations { get; set; }
+
+        internal object FirstOrDefault()
+        {
+            throw new NotImplementedException();
+        }
+
         public DbSet<ScheduleDay> ScheduleDays { get; set; }
         public DbSet<Meal> Meals { get; set; }
         public DbSet<Preparation> Preparations { get; set; }
@@ -76,6 +79,12 @@ namespace MealsService
 
             modelBuilder.Entity<Recipe>()
                 .HasIndex(v => v.Slug);
+
+            modelBuilder.Entity<IngredientCategory>()
+                .HasMany(c => c.Ingredients)
+                .WithOne(i => i.IngredientCategory)
+                //.IsRequired()
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

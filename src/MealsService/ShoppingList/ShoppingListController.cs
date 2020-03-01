@@ -18,9 +18,9 @@ namespace MealsService.ShoppingList
     [Route("[controller]")]
     public class ShoppingListController : Controller
     {
-        private ShoppingListService _shoppingListService { get; }
+        private IShoppingListService _shoppingListService { get; }
         
-        public ShoppingListController(ShoppingListService shoppingListService)
+        public ShoppingListController(IShoppingListService shoppingListService)
         {
             _shoppingListService = shoppingListService;
         }
@@ -66,9 +66,7 @@ namespace MealsService.ShoppingList
                 throw StandardErrors.InvalidDateSpecified;
             }
 
-            var shoppingList = (await _shoppingListService.GetShoppingListAsync(userId, localDate.GetWeekStart()))
-                .Select(_shoppingListService.ToDto)
-                .ToList();
+            var shoppingList = (await _shoppingListService.GetGroupedShoppingListAsync(userId, localDate.GetWeekStart()));
 
             return Json(new SuccessResponse<object>(new
             {
@@ -97,10 +95,9 @@ namespace MealsService.ShoppingList
                 return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
             }
 
-            var shoppingList = (await _shoppingListService.GetShoppingListForPreparationAsync(userId, preparationId))
-                .Select(_shoppingListService.ToDto)
-                .ToList();
-
+            
+            var shoppingList = (await _shoppingListService.GetShoppingListForPreparationAsync(userId, preparationId));
+            
             return Json(new SuccessResponse<object>(new
             {
                 shoppingList
@@ -173,10 +170,10 @@ namespace MealsService.ShoppingList
                 return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
             }
 
-            if (request.Id != id)
+            /*if (request.Id != id)
             {
                 request.Id = id;
-            }
+            }*/
 
             var response = await _shoppingListService.UpdateItemAsync(userId, request);
 
@@ -259,5 +256,39 @@ namespace MealsService.ShoppingList
                 return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
             }
         }
+
+        /*[Route("me/items/"), HttpDelete]
+        [Route("{userId:int}/items/"), HttpDelete]
+        public IActionResult RemoveItems(int userId, [FromBody]DeleteShoppingListItemsRequest request)
+        {
+            var claims = HttpContext.User.Claims.ToList();
+            int authorizedId = 0;
+            bool isAdmin = false;
+
+            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out authorizedId);
+            Boolean.TryParse(claims.FirstOrDefault(c => c.Type == "isAdmin")?.Value, out isAdmin);
+
+            if (userId == 0)
+            {
+                userId = authorizedId;
+            }
+            else if (userId != authorizedId && !isAdmin)
+            {
+                Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return Json(new ErrorResponse("Not authorized to make this request", (int)HttpStatusCode.Forbidden));
+            }
+
+            var response = _shoppingListService.Removeitems(userId, request.Ids);
+
+            if (response)
+            {
+                return Json(new SuccessResponse());
+            }
+            else
+            {
+                Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                return Json(new ErrorResponse("Failed to add item", (int)HttpStatusCode.BadRequest));
+            }
+        }*/
     }
 }

@@ -1,33 +1,32 @@
 ﻿using System;
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
+
 using MealsService.Recipes.Data;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MealsService.Diets.Data
 {
     public class DietsRepository
     {
-        private IServiceProvider _serviceProvider;
+        private MealsDbContext _dbContext;
         private DietTypeService _dietTypesService;
 
-        public DietsRepository(IServiceProvider serviceProvider, DietTypeService dietTypesService)
+        public DietsRepository(MealsDbContext dbContext, DietTypeService dietTypesService)
         {
-            _serviceProvider = serviceProvider;
+            _dbContext = dbContext;
             _dietTypesService = dietTypesService;
         }
 
         public MenuPreference GetMenuPreference(int userId)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-            var preference = context.MenuPreferences.Find(userId);
+            var preference = _dbContext.MenuPreferences.Find(userId);
 
             if(preference == null)
             {
                 preference = DefaultMenuPreference(userId);
-                context.MenuPreferences.Add(preference);
-                if(context.SaveChanges() == 0)
+                _dbContext.MenuPreferences.Add(preference);
+                if(_dbContext.SaveChanges() == 0)
                 {
                     preference = null;
                 }
@@ -38,14 +37,12 @@ namespace MealsService.Diets.Data
 
         public List<DietGoal> GetDietGoals(int userId)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-            return context.DietGoals.Where(g => g.UserId == userId).ToList();
+            return _dbContext.DietGoals.Where(g => g.UserId == userId).ToList();
         }
 
         public PrepPlan GetPrepPlan(int userId, int targetDays)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-            return context.PrepPlans
+            return _dbContext.PrepPlans
                 .Include(p => p.Generators)
                     .ThenInclude(g => g.Consumers)
                 .Include(p => p.Consumers)
@@ -54,51 +51,43 @@ namespace MealsService.Diets.Data
 
         public void UpdatePrepPlan(PrepPlan plan, List<PrepPlanGenerator> removedGenerators, List<PrepPlanConsumer> removedConsumers)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
             if (removedConsumers != null && removedConsumers.Any())
             {
-                context.PrepPlanConsumers.RemoveRange(removedConsumers);
+                _dbContext.PrepPlanConsumers.RemoveRange(removedConsumers);
             }
             if (removedGenerators != null && removedGenerators.Any())
             {
-                context.PrepPlanGenerators.RemoveRange(removedGenerators);
+                _dbContext.PrepPlanGenerators.RemoveRange(removedGenerators);
             }
 
             if (plan != null)
             {
                 if (plan.Id > 0 )
                 {
-                    context.PrepPlans.Update(plan);
+                    _dbContext.PrepPlans.Update(plan);
                 }
                 else
                 {
-                    context.PrepPlans.Add(plan);
+                    _dbContext.PrepPlans.Add(plan);
                 }
             }
 
-            context.SaveChanges();
+            _dbContext.SaveChanges();
         }
 
         public void RemoveGenerators(List<PrepPlanConsumer> consumers)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
-            context.PrepPlanConsumers.RemoveRange(consumers);
-            context.SaveChanges();
+            _dbContext.PrepPlanConsumers.RemoveRange(consumers);
+            _dbContext.SaveChanges();
         }
 
         public List<ChangeDay> GetChangeDays(int userId, int targetDays)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
-            return context.ChangeDays.Where(d => d.UserId == userId && d.TargetDays == targetDays).ToList();
+            return _dbContext.ChangeDays.Where(d => d.UserId == userId && d.TargetDays == targetDays).ToList();
         }
 
         public bool SetChangeDays(int userId, int targetDays, List<int> changeDaysOfWeek)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
             var changeDays = GetChangeDays(userId, targetDays);
             var changes = false;
 
@@ -106,7 +95,7 @@ namespace MealsService.Diets.Data
             {
                 if (changeDays.Count < i + 1)
                 {
-                    context.Add(new ChangeDay
+                    _dbContext.Add(new ChangeDay
                     {
                         UserId = userId,
                         TargetDays = targetDays,
@@ -121,13 +110,11 @@ namespace MealsService.Diets.Data
                 }
             }
 
-            return !changes || context.SaveChanges() > 0;
+            return !changes || _dbContext.SaveChanges() > 0;
         }
 
         public bool AddDietGoal(int userId, DietGoal goal)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
             var goals = GetDietGoals(userId);
 
             if(goals.Any(g => g.TargetDietId == goal.TargetDietId))
@@ -137,14 +124,12 @@ namespace MealsService.Diets.Data
 
             goal.UserId = userId;
 
-            context.DietGoals.Add(goal);
-            return context.SaveChanges() > 0; 
+            _dbContext.DietGoals.Add(goal);
+            return _dbContext.SaveChanges() > 0; 
         }
 
         public bool UpdateDietGoal(int userId, DietGoal update)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
             var goal = GetDietGoals(userId).FirstOrDefault(g => g.TargetDietId == update.TargetDietId);
 
             if (goal == null)
@@ -156,12 +141,11 @@ namespace MealsService.Diets.Data
             goal.Target = update.Target;
             goal.Current = update.Current;
 
-            return context.Entry(goal).State == EntityState.Unchanged || context.SaveChanges() > 0;
+            return _dbContext.Entry(goal).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
         }
 
         public bool RemoveDietGoal(int userId, int targetDietId)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
             var goal = GetDietGoals(userId).FirstOrDefault(g => g.TargetDietId == targetDietId);
 
             if(goal == null)
@@ -169,21 +153,19 @@ namespace MealsService.Diets.Data
                 return true;
             }
 
-            context.Remove(goal);
-            return context.SaveChanges() > 0;
+            _dbContext.Remove(goal);
+            return _dbContext.SaveChanges() > 0;
         }
 
         public bool UpdateMenuPreference(int userId, MenuPreference update)
         {
-            var context = _serviceProvider.GetService<MealsDbContext>();
-
             var preference = GetMenuPreference(userId);
 
             preference.RecipeStyle = update.RecipeStyle;
             preference.MealTypes = update.MealTypes;
             preference.ShoppingFreq = update.ShoppingFreq;
 
-            return context.Entry(preference).State == EntityState.Unchanged || context.SaveChanges() > 0;
+            return _dbContext.Entry(preference).State == EntityState.Unchanged || _dbContext.SaveChanges() > 0;
         }
 
         public MenuPreference DefaultMenuPreference(int userId)

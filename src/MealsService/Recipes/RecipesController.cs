@@ -1,35 +1,47 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MealsService.Common;
-using MealsService.Common.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 using MealsService.Requests;
 using MealsService.Responses;
 using MealsService.Recipes.Dtos;
+using MealsService.Common;
+using MealsService.Common.Errors;
+using MealsService.Configurations;
+using MealsService.Images;
 
 namespace MealsService.Recipes
 {
     [Route("[controller]")]
     public class RecipesController : AuthorizedController
     {
-        private RecipesService _recipesService;
+        private IRecipesService _recipesService;
+        private IImageService _imageService;
+        private IUserRecipesService _userRecipesService;
+        private AWSConfiguration _awsOptions;
 
-        public RecipesController(RecipesService recipesService)
+        public RecipesController(IRecipesService recipesService, IUserRecipesService userRecipesService, IImageService imageService, IOptions<AWSConfiguration> options)
         {
             _recipesService = recipesService;
+            _userRecipesService = userRecipesService;
+            _imageService = imageService;
+            _awsOptions = options.Value;
         }
 
-        [HttpPost("list")]
-        public async Task<IActionResult> ListAsync([FromBody]ListRecipesRequest request)
+        [HttpGet]
+        public async Task<IActionResult> ListAsync([FromQuery] RecipeListRequest request)
         {
             if (request.UserId > 0 && (AuthorizedUser != request.UserId || !IsAdmin))
             {
                 throw StandardErrors.ForbiddenRequest;
+            }
+
+            if (request.UserId == 0)
+            {
+                request.UserId = AuthorizedUser;
             }
 
             if (!IsAdmin && request.IncludeDeleted)
@@ -37,9 +49,35 @@ namespace MealsService.Recipes
                 request.IncludeDeleted = false;
             }
 
-            var recipes = await _recipesService.ListRecipesAsync(request, AuthorizedUser);
+            var recipes = _recipesService.ListRecipes(request);
+
+            if (request.UserId > 0)
+            {
+                await _userRecipesService.PopulateRecipeVotesAsync(recipes, request.UserId);
+            }
             
             return Json(new SuccessResponse<object>(new 
+            {
+                recipes
+            }));
+        }
+
+        [HttpPost("search")]
+        public async Task<IActionResult> SearchAsync([FromQuery] RecipeSearchRequest request)
+        {
+            if (!IsAdmin && request.IncludeDeleted)
+            {
+                request.IncludeDeleted = false;
+            }
+
+            var recipes = _recipesService.SearchRecipes(request);
+
+            if (AuthorizedUser > 0)
+            {
+                await _userRecipesService.PopulateRecipeVotesAsync(recipes, AuthorizedUser);
+            }
+
+            return Json(new SuccessResponse<object>(new
             {
                 recipes
             }));
@@ -48,7 +86,12 @@ namespace MealsService.Recipes
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetAsync(int id)
         {
-            var recipe = await _recipesService.GetRecipeAsync(id, AuthorizedUser);
+            var recipe = _recipesService.GetRecipe(id);
+
+            if (AuthorizedUser > 0)
+            {
+                await _userRecipesService.PopulateRecipeVotesAsync(new List<RecipeDto> {recipe}, AuthorizedUser);
+            }
 
             if(recipe != null)
             {
@@ -64,7 +107,12 @@ namespace MealsService.Recipes
         [HttpGet("{slug:regex(^[[A-Za-z0-9\\-]]+$)}")]
         public async Task<IActionResult> GetAsync(string slug)
         {
-            var recipe = await _recipesService.GetBySlugAsync(slug, AuthorizedUser);
+            var recipe = _recipesService.GetRecipeBySlug(slug);
+
+            if (AuthorizedUser > 0)
+            {
+                await _userRecipesService.PopulateRecipeVotesAsync(new List<RecipeDto> { recipe }, AuthorizedUser);
+            }
 
             if (recipe != null)
             {
@@ -79,40 +127,55 @@ namespace MealsService.Recipes
 
         [Authorize]
         [HttpPost("{id:int}/votes")]
-        public async Task<IActionResult> Vote(int id, [FromBody] RecipeVoteDto request)
+        public async Task<IActionResult> VoteAsync(int id, [FromBody] RecipeVoteDto request)
         {
-            var claims = HttpContext.User.Claims;
-            int userId = 0;
+            var success = await _userRecipesService.AddRecipeVoteAsync(AuthorizedUser, id, request.Vote);
+            var response = new RecipeVoteResponse
+            {
+                RecipeId = id, Vote = request.Vote
+            };
 
-            Int32.TryParse(claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value, out userId);
+            return Json(response);
+        }
 
-            return Json(await _recipesService.VoteAsync(id, userId, request.Vote));
+        [Authorize]
+        [HttpGet("votes/me")]
+        [HttpGet("votes/{userId:int}")]
+        public async Task<IActionResult> ListVotesAsync(int userId)
+        {
+            if (userId == 0)
+            {
+                userId = AuthorizedUser;
+            }
+            else if(userId != AuthorizedUser && !IsAdmin)
+            {
+                throw StandardErrors.ForbiddenRequest;
+            }
+
+            var votes = await _userRecipesService.ListRecipeVotesAsync(userId);
+
+            return Json(new SuccessResponse<object>(new
+            {
+                votes
+            }));
         }
 
         [Authorize, AdminRequiredFilter]
         [HttpPost]
-        public IActionResult Create([FromBody]UpdateRecipeRequest request)
+        public IActionResult Create([FromBody]RecipeDto recipe)
         {
-            RecipeDto createdRecipe = _recipesService.UpdateRecipe(0, request);
+            var updatedRecipe = _recipesService.SaveRecipe(recipe);
 
-            if (createdRecipe != null)
-            {
-                return Json(new SuccessResponse<RecipeDto>(createdRecipe));
-            }
-            else
-            {
-                Response.StatusCode = 400;
-                return Json(new ErrorResponse("Failed to create recipe", 400));
-            }
-            
+            return Json(new SuccessResponse<RecipeDto>(updatedRecipe));
         }
 
 
         [Authorize, AdminRequiredFilter]
         [HttpPut("{id:int}")]
-        public IActionResult Update(int id, [FromBody]UpdateRecipeRequest request)
+        public IActionResult Update(int id, [FromBody]RecipeDto recipe)
         {
-            var updatedRecipe = _recipesService.UpdateRecipe(id, request);
+            recipe.Id = id;
+            var updatedRecipe = _recipesService.SaveRecipe(recipe);
 
             return Json(new SuccessResponse<RecipeDto>(updatedRecipe));
         }
@@ -121,30 +184,19 @@ namespace MealsService.Recipes
         [HttpPost("{recipeId:int}/image")]
         public async Task<IActionResult> UploadImageAsync(int recipeId)
         {
+            var foundRecipe = _recipesService.GetRecipe(recipeId);
+
+            if (foundRecipe == null)
+            {
+                throw StandardErrors.MissingRequestedItem;
+            }
+
             var recipeImageFile = HttpContext.Request.Form.Files.FirstOrDefault();
-            var allowedContentTypes = new List<string>()
-            {
-                "image/bmp",
-                "image/png",
-                "image/jpeg"
-            };
+            var imagePath = await _imageService.UploadImageAsync(recipeId.ToString(), _awsOptions.RecipeImagesBucket, recipeImageFile);
 
-            if (recipeImageFile == null || recipeImageFile.Length == 0)
-            {
-                HttpContext.Response.StatusCode = 400;
-                return Json(new ErrorResponse("No files were uploaded", 500));
-            }
-            if (!allowedContentTypes.Contains(recipeImageFile.ContentType))
-            {
-                HttpContext.Response.StatusCode = 400;
-                return Json(new ErrorResponse("Allowed types are PNG, JPEG, BMP", 500));
-            }
-            if (!await _recipesService.UpdateRecipeImageAsync(recipeId, recipeImageFile))
-            {
-                HttpContext.Response.StatusCode = 400;
-                return Json(new ErrorResponse("Could not update recipe image", 500));
-            }
-
+            foundRecipe.Image = imagePath;
+            _recipesService.SaveRecipe(foundRecipe);
+            
             return Json(new SuccessResponse());
         }
 
@@ -153,7 +205,7 @@ namespace MealsService.Recipes
         [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
-            var success = _recipesService.Remove(id);
+            var success = _recipesService.DeleteRecipe(id);
 
             return Json(new SuccessResponse(success));
         }

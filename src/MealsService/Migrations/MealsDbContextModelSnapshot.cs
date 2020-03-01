@@ -176,6 +176,10 @@ namespace MealsService.Migrations
                     b.Property<string>("Image")
                         .HasMaxLength(80);
 
+                    b.Property<double>("IndividualWeight");
+
+                    b.Property<bool>("IsMeasuredVolume");
+
                     b.Property<string>("Name")
                         .HasMaxLength(40);
 
@@ -201,24 +205,6 @@ namespace MealsService.Migrations
                     b.ToTable("IngredientCategories");
                 });
 
-            modelBuilder.Entity("MealsService.Ingredients.Data.IngredientMeasureType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("IngredientId");
-
-                    b.Property<int>("MeasureTypeId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IngredientId");
-
-                    b.HasIndex("MeasureTypeId");
-
-                    b.ToTable("IngredientMeasureTypes");
-                });
-
             modelBuilder.Entity("MealsService.Ingredients.Data.IngredientTag", b =>
                 {
                     b.Property<int>("Id")
@@ -235,46 +221,6 @@ namespace MealsService.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("IngredientTags");
-                });
-
-            modelBuilder.Entity("MealsService.Ingredients.Data.MeasureConverter", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("ConvertType");
-
-                    b.Property<double>("Factor");
-
-                    b.Property<int>("SourceMeasureId");
-
-                    b.Property<int>("TargetMeasureId");
-
-                    b.Property<int?>("TargetMeasureTypeId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SourceMeasureId");
-
-                    b.HasIndex("TargetMeasureTypeId");
-
-                    b.ToTable("MeasureConverters");
-                });
-
-            modelBuilder.Entity("MealsService.Ingredients.Data.MeasureType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(32);
-
-                    b.Property<string>("Short")
-                        .HasMaxLength(10);
-
-                    b.HasKey("Id");
-
-                    b.ToTable("MeasureTypes");
                 });
 
             modelBuilder.Entity("MealsService.Recipes.Data.Recipe", b =>
@@ -344,20 +290,13 @@ namespace MealsService.Migrations
 
                     b.Property<float>("Amount");
 
-                    b.Property<string>("AmountType")
-                        .HasMaxLength(32);
-
                     b.Property<int>("IngredientId");
-
-                    b.Property<int>("MeasureTypeId");
 
                     b.Property<int>("RecipeId");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IngredientId");
-
-                    b.HasIndex("MeasureTypeId");
 
                     b.HasIndex("RecipeId");
 
@@ -509,18 +448,13 @@ namespace MealsService.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<float>("Amount");
+                    b.Property<double>("Amount");
 
                     b.Property<bool>("Checked");
 
                     b.Property<int>("IngredientId");
 
-                    b.Property<string>("IngredientName")
-                        .HasMaxLength(64);
-
                     b.Property<bool>("ManuallyAdded");
-
-                    b.Property<int>("MeasureTypeId");
 
                     b.Property<int?>("PreparationId");
 
@@ -533,8 +467,6 @@ namespace MealsService.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IngredientId");
-
-                    b.HasIndex("MeasureTypeId");
 
                     b.HasIndex("PreparationId");
 
@@ -678,21 +610,9 @@ namespace MealsService.Migrations
             modelBuilder.Entity("MealsService.Ingredients.Data.Ingredient", b =>
                 {
                     b.HasOne("MealsService.Ingredients.Data.IngredientCategory", "IngredientCategory")
-                        .WithMany()
-                        .HasForeignKey("CategoryId");
-                });
-
-            modelBuilder.Entity("MealsService.Ingredients.Data.IngredientMeasureType", b =>
-                {
-                    b.HasOne("MealsService.Ingredients.Data.Ingredient", "Ingredient")
-                        .WithMany("IngredientMeasureTypes")
-                        .HasForeignKey("IngredientId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
-                        .WithMany()
-                        .HasForeignKey("MeasureTypeId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .WithMany("Ingredients")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("MealsService.Ingredients.Data.IngredientTag", b =>
@@ -706,18 +626,6 @@ namespace MealsService.Migrations
                         .WithMany()
                         .HasForeignKey("TagId")
                         .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity("MealsService.Ingredients.Data.MeasureConverter", b =>
-                {
-                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "SourceMeasure")
-                        .WithMany()
-                        .HasForeignKey("SourceMeasureId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "TargetMeasureType")
-                        .WithMany()
-                        .HasForeignKey("TargetMeasureTypeId");
                 });
 
             modelBuilder.Entity("MealsService.Recipes.Data.RecipeDietType", b =>
@@ -738,11 +646,6 @@ namespace MealsService.Migrations
                     b.HasOne("MealsService.Ingredients.Data.Ingredient", "Ingredient")
                         .WithMany()
                         .HasForeignKey("IngredientId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
-                        .WithMany()
-                        .HasForeignKey("MeasureTypeId")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("MealsService.Recipes.Data.Recipe", "Recipe")
@@ -811,11 +714,6 @@ namespace MealsService.Migrations
                     b.HasOne("MealsService.Ingredients.Data.Ingredient", "Ingredient")
                         .WithMany()
                         .HasForeignKey("IngredientId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("MealsService.Ingredients.Data.MeasureType", "MeasureType")
-                        .WithMany()
-                        .HasForeignKey("MeasureTypeId")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("MealsService.Schedules.Data.Preparation", "Preparation")
