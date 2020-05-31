@@ -62,7 +62,10 @@
 
                 for (int i = 0; i < container.Recipes[day.Meals[0].RecipeId].Ingredients.Count; i++)
                 {
-                    var ingredient = container.Recipes[day.Meals[0].RecipeId].Ingredients[i];
+                    var recipeId = day.Meals[0].RecipeId;
+                    var recipe = container.Recipes[recipeId];
+                    var ingredientId = recipe.Ingredients[i].MeasuredIngredient.IngredientId;
+                    var ingredient = container.Ingredients[ingredientId];
 
                     if (i > 2)
                     {

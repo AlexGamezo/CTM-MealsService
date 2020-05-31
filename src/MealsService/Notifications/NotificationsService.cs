@@ -15,6 +15,7 @@ using MealsService.Schedules.Dtos;
 using MealsService.Stats;
 using MealsService.Users;
 using MealsService.Users.Data;
+using MealsService.Ingredients;
 
 namespace MealsService.Notifications
 {
@@ -23,6 +24,7 @@ namespace MealsService.Notifications
         private RequestContextFactory _requestContextFactory;
         private UsersService _usersService;
         private IScheduleService _scheduleService;
+        private IIngredientsService _ingredientsService;
         private EmailService _emailService;
         private StatsService _statsService;
         private IRecipesService _recipesService;
@@ -34,6 +36,7 @@ namespace MealsService.Notifications
             StatsService statsService,
             EmailService emailService,
             IRecipesService recipesService,
+            IIngredientsService ingredientsService,
             IScheduleService scheduleService,
             ILoggerFactory loggerFactory
         )
@@ -45,6 +48,7 @@ namespace MealsService.Notifications
 
             _recipesService = recipesService;
             _scheduleService = scheduleService;
+            _ingredientsService = ingredientsService;
 
             _logger = loggerFactory.CreateLogger<NotificationsService>();
         }
@@ -54,6 +58,7 @@ namespace MealsService.Notifications
             var offset = 0;
             var count = 200;
             List<UserDto> users;
+
             do
             {
                 users = await _usersService.GetActiveUsers(count, offset);
@@ -74,6 +79,8 @@ namespace MealsService.Notifications
                         }
                     }
                 }
+
+                offset += count;
             } while (users.Any() && users.Count == count);
 
             _requestContextFactory.ClearContext();
@@ -102,6 +109,7 @@ namespace MealsService.Notifications
                     Schedule = schedule,
                     Recipes = _recipesService.ListRecipes().Where(r => recipeIds.Contains(r.Id))
                         .ToDictionary(r => r.Id, r => r),
+                    Ingredients = _ingredientsService.ListIngredients().ToDictionary(i => i.Id, i => i),
                     DidYouKnowStat = stat
                 };
 
