@@ -192,7 +192,9 @@ namespace MealsService.Recipes
             }
 
             var recipeImageFile = HttpContext.Request.Form.Files.FirstOrDefault();
-            var imagePath = await _imageService.UploadImageAsync(recipeId.ToString(), _awsOptions.RecipeImagesBucket, recipeImageFile);
+            var extension = recipeImageFile.ContentType.Substring(recipeImageFile.ContentType.IndexOf("/") + 1);
+            
+            var imagePath = await _imageService.UploadImageAsync(recipeId.ToString() + "." + extension, _awsOptions.RecipeImagesBucket, recipeImageFile);
 
             foundRecipe.Image = imagePath;
             _recipesService.SaveRecipe(foundRecipe);

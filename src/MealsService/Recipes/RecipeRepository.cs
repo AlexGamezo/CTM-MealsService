@@ -100,7 +100,7 @@ namespace MealsService.Recipes
                 else
                 {
                     changes = true;
-                    _dbContext.RecipeDietTypes.Add(new RecipeDietType { DietTypeId = dietTypeIds[i] });
+                    _dbContext.RecipeDietTypes.Add(new RecipeDietType { DietTypeId = dietTypeIds[i], RecipeId = recipeId });
                 }
             }
             if (dietTypeIds.Count < recipeDietTypes.Count)
@@ -192,7 +192,7 @@ namespace MealsService.Recipes
                 else
                 {
                     changes = true;
-                    recipeSteps.Add(new RecipeStep { RecipeId = recipeId, Text = steps[i].Text, Order = steps[i].Order });
+                    _dbContext.RecipeSteps.Add(new RecipeStep { RecipeId = recipeId, Text = steps[i].Text, Order = steps[i].Order });
                 }
             }
             if (steps.Count < recipeSteps.Count)

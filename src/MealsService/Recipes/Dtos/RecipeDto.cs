@@ -61,7 +61,7 @@ namespace MealsService.Recipes.Dtos
                 Source = recipe.Source,
                 Ingredients = recipe.RecipeIngredients?.Select(i => i.ToDto())
                     .ToList(),
-                Steps = recipe.Steps
+                Steps = recipe.Steps?
                     .OrderBy(s => s.Order)
                     .ToList(),
                 DietTypes = recipe.RecipeDietTypes?.Select(mdt => mdt.DietTypeId).ToList(),

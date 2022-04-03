@@ -44,8 +44,8 @@ namespace MealsService.Recipes
 
         private void NormalizeIngredientsForRecipe(RecipeDto dto)
         {
-            var measuredIngredients = dto.Ingredients.Select(i => i.MeasuredIngredient).ToList();
-            measuredIngredients.ForEach(_ingredientsService.NormalizeMeasuredIngredient);
+            var measuredIngredients = dto.Ingredients?.Select(i => i.MeasuredIngredient).ToList();
+            measuredIngredients?.ForEach(_ingredientsService.NormalizeMeasuredIngredient);
         }
 
         public List<RecipeDto> SearchRecipes(RecipeSearchRequest request)

@@ -8,6 +8,8 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using System.Collections.Generic;
 using MealsService.Common.Errors;
+using Microsoft.Extensions.Options;
+using MealsService.Configurations;
 
 namespace MealsService.Images
 {
@@ -16,6 +18,12 @@ namespace MealsService.Images
         private string _region;
 
         private IAmazonS3 _s3Client;
+
+        public ImageService(IAmazonS3 s3Client, IOptions<AWSConfiguration> options)
+        {
+            _s3Client = s3Client;
+            _region = options.Value.Region;
+        }
 
         public Task<bool> DeleteImageAsync(string path)
         {
@@ -40,9 +48,7 @@ namespace MealsService.Images
                 throw FileUploads.InvalidFileTypeUploaded;
             }
 
-            var extension = fileData.ContentType.Substring(fileData.ContentType.IndexOf("/", StringComparison.InvariantCulture) + 1);
             var stream = new MemoryStream();
-
             
             fileData.CopyTo(stream);
 
